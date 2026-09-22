@@ -1,0 +1,5 @@
+model,target_domain,f1_mean,n_folds
+vit_base_patch16_224,onedrive_trucha,88.98,5
+swin_base_patch4_window7_224,onedrive_trucha,92.39,5
+densenet121,onedrive_trucha,85.91,5
+efficientnet_b0,onedrive_trucha,67.36,5

@@ -1,0 +1,44 @@
+[collect_trucha] excluidas 46 'dudosa' + incluidas 82 rescatadas manualmente
+[collect_rohu_eyes] excluidas 22 'dudosa' + incluidas 48 rescatadas manualmente + excluidas 109 falsos positivos confirmados (escama/aleta/borrosa)
+[grupos_casi_duplicados] 456 imagenes -> 193 grupos (108 grupos con 2+ imagenes casi-identicas, grupo mas grande=15)
+Dataset mixto: 1261 imagenes (805 trucha [70% de su pool] + 456 rohu [30% de su pool])
+  fresco=422  no_fresco=839
+------------------------------------------------------------------------------------------
+MODELO: vit_base_patch16_224
+  fold1 (n_val=249, 160 trucha / 89 rohu): F1=84.04  Acc=85.94  epochs=30  tiempo=738s
+  fold2 (n_val=254, 160 trucha / 94 rohu): F1=90.03  Acc=91.73  epochs=23  tiempo=564s
+  fold3 (n_val=246, 162 trucha / 84 rohu): F1=91.55  Acc=92.68  epochs=17  tiempo=411s
+  fold4 (n_val=284, 162 trucha / 122 rohu): F1=87.63  Acc=90.14  epochs=30  tiempo=728s
+  fold5 (n_val=228, 161 trucha / 67 rohu): F1=87.62  Acc=88.60  epochs=20  tiempo=482s
+------------------------------------------------------------------------------------------
+MODELO: swin_base_patch4_window7_224
+  fold1 (n_val=249, 160 trucha / 89 rohu): F1=87.35  Acc=88.76  epochs=23  tiempo=864s
+  fold2 (n_val=254, 160 trucha / 94 rohu): F1=91.55  Acc=92.91  epochs=24  tiempo=902s
+  fold3 (n_val=246, 162 trucha / 84 rohu): F1=93.47  Acc=94.31  epochs=24  tiempo=906s
+  fold4 (n_val=284, 162 trucha / 122 rohu): F1=92.39  Acc=93.66  epochs=21  tiempo=795s
+  fold5 (n_val=228, 161 trucha / 67 rohu): F1=90.98  Acc=91.67  epochs=18  tiempo=680s
+------------------------------------------------------------------------------------------
+MODELO: densenet121
+  fold1 (n_val=249, 160 trucha / 89 rohu): F1=85.75  Acc=86.75  epochs=24  tiempo=331s
+  fold2 (n_val=254, 160 trucha / 94 rohu): F1=83.25  Acc=86.22  epochs=26  tiempo=359s
+  fold3 (n_val=246, 162 trucha / 84 rohu): F1=86.25  Acc=88.62  epochs=30  tiempo=414s
+  fold4 (n_val=284, 162 trucha / 122 rohu): F1=77.10  Acc=82.75  epochs=26  tiempo=360s
+  fold5 (n_val=228, 161 trucha / 67 rohu): F1=81.92  Acc=83.77  epochs=20  tiempo=272s
+------------------------------------------------------------------------------------------
+MODELO: efficientnet_b0
+  fold1 (n_val=249, 160 trucha / 89 rohu): F1=60.00  Acc=64.66  epochs=22  tiempo=189s
+  fold2 (n_val=254, 160 trucha / 94 rohu): F1=64.54  Acc=67.72  epochs=30  tiempo=253s
+  fold3 (n_val=246, 162 trucha / 84 rohu): F1=66.14  Acc=68.29  epochs=30  tiempo=255s
+  fold4 (n_val=284, 162 trucha / 122 rohu): F1=61.17  Acc=62.32  epochs=9  tiempo=80s
+  fold5 (n_val=228, 161 trucha / 67 rohu): F1=73.99  Acc=75.00  epochs=29  tiempo=245s
+
+==========================================================================================
+RESUMEN (media de 5 folds)
+==========================================================================================
+vit_base_patch16_224           F1=88.17 (n_folds=5)
+swin_base_patch4_window7_224   F1=91.15 (n_folds=5)
+densenet121                    F1=82.85 (n_folds=5)
+efficientnet_b0                F1=65.17 (n_folds=5)
+
+Guardado: /Users/miguelsumaran/Proyectos/AiTesis/Generalizacion_CrossDataset/resultados/experimento_mixto_t70_r30_congelado_sinx2_por_fold.csv
+Guardado: /Users/miguelsumaran/Proyectos/AiTesis/Generalizacion_CrossDataset/resultados/experimento_mixto_t70_r30_congelado_sinx2_resumen.csv

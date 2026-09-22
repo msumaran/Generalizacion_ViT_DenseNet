@@ -1,0 +1,35 @@
+==========================================================================================
+LINEAR PROBE (backbone congelado) (SIN augmentacion x2) sobre onedrive_trucha, kaggle_rohu (NO zero-shot)
+Dispositivo: mps
+==========================================================================================
+[collect_trucha] excluidas 46 'dudosa' + incluidas 82 rescatadas manualmente
+
+onedrive_trucha: n=1150  fresco=481  no_fresco=669
+------------------------------------------------------------------------------------------
+MODELO: vit_base_patch16_224  DOMINIO: onedrive_trucha
+  fold1: F1=84.60  Acc=85.22  epochs=26  tiempo=556s
+  fold2: F1=87.60  Acc=88.26  epochs=30  tiempo=641s
+  fold3: F1=92.80  Acc=93.04  epochs=23  tiempo=491s
+  fold4: F1=83.20  Acc=84.35  epochs=29  tiempo=619s
+  fold5: F1=82.36  Acc=83.48  epochs=15  tiempo=321s
+------------------------------------------------------------------------------------------
+MODELO: swin_base_patch4_window7_224  DOMINIO: onedrive_trucha
+  fold1: F1=89.21  Acc=89.57  epochs=20  tiempo=665s
+  fold2: F1=88.18  Acc=88.70  epochs=22  tiempo=738s
+  fold3: F1=93.72  Acc=93.91  epochs=23  tiempo=768s
+  fold4: F1=88.61  Acc=89.13  epochs=28  tiempo=932s
+  fold5: F1=93.31  Acc=93.48  epochs=28  tiempo=934s
+------------------------------------------------------------------------------------------
+MODELO: densenet121  DOMINIO: onedrive_trucha
+  fold1: F1=78.01  Acc=79.13  epochs=30  tiempo=361s
+  fold2: F1=82.59  Acc=83.48  epochs=30  tiempo=365s
+  fold3: F1=85.45  Acc=86.09  epochs=28  tiempo=345s
+  fold4: F1=76.59  Acc=78.70  epochs=28  tiempo=351s
+  fold5: F1=81.76  Acc=83.04  epochs=23  tiempo=285s
+------------------------------------------------------------------------------------------
+MODELO: efficientnet_b0  DOMINIO: onedrive_trucha
+  fold1: F1=57.64  Acc=59.57  epochs=29  tiempo=219s
+  fold2: F1=54.56  Acc=54.78  epochs=29  tiempo=218s
+  fold3: F1=58.93  Acc=59.13  epochs=18  tiempo=139s
+  fold4: F1=61.28  Acc=62.17  epochs=30  tiempo=227s
+  fold5: F1=59.05  Acc=59.13  epochs=25  tiempo=193s
