@@ -1,0 +1,51 @@
+[collect_trucha] excluidas 46 'dudosa' + incluidas 82 rescatadas manualmente
+[collect_rohu_eyes] excluidas 22 'dudosa' + incluidas 48 rescatadas manualmente + excluidas 109 falsos positivos confirmados (escama/aleta/borrosa)
+[grupos_casi_duplicados] 456 imagenes -> 193 grupos (108 grupos con 2+ imagenes casi-identicas, grupo mas grande=15)
+Dataset mixto: 1261 imagenes (805 trucha [70% de su pool] + 456 rohu [30% de su pool])
+  fresco=422  no_fresco=839
+
+==========================================================================================
+usar_x2=True  n=1261
+==========================================================================================
+------------------------------------------------------------------------------------------
+MODELO: vit_base_patch16_224
+  vit_base_patch16_224/rohu fold1/5: F1=85.87 Acc=87.15 AUC=0.9463 epochs=17
+  vit_base_patch16_224/rohu fold2/5: F1=93.57 Acc=94.49 AUC=0.9611 epochs=23
+  vit_base_patch16_224/rohu fold3/5: F1=92.59 Acc=93.50 AUC=0.9736 epochs=24
+  vit_base_patch16_224/rohu fold4/5: F1=94.20 Acc=95.07 AUC=0.9578 epochs=29
+  vit_base_patch16_224/rohu fold5/5: F1=88.96 Acc=89.91 AUC=0.9489 epochs=18
+  vit_base_patch16_224/rohu POOLED: F1=91.09 Acc=92.15 AUC=0.9586
+------------------------------------------------------------------------------------------
+MODELO: densenet121
+  densenet121/rohu fold1/5: F1=87.35 Acc=88.35 AUC=0.9448 epochs=24
+  densenet121/rohu fold2/5: F1=87.18 Acc=89.37 AUC=0.9482 epochs=30
+  densenet121/rohu fold3/5: F1=89.89 Acc=91.46 AUC=0.9691 epochs=30
+  densenet121/rohu fold4/5: F1=82.33 Acc=85.92 AUC=0.9531 epochs=30
+  densenet121/rohu fold5/5: F1=84.85 Acc=86.40 AUC=0.9417 epochs=27
+  densenet121/rohu POOLED: F1=86.34 Acc=88.26 AUC=0.9511
+[collect_trucha] excluidas 46 'dudosa' + incluidas 82 rescatadas manualmente
+[collect_rohu_eyes] excluidas 22 'dudosa' + incluidas 48 rescatadas manualmente + excluidas 109 falsos positivos confirmados (escama/aleta/borrosa)
+[grupos_casi_duplicados] 456 imagenes -> 193 grupos (108 grupos con 2+ imagenes casi-identicas, grupo mas grande=15)
+Dataset mixto: 1261 imagenes (805 trucha [70% de su pool] + 456 rohu [30% de su pool])
+  fresco=422  no_fresco=839
+
+==========================================================================================
+usar_x2=False  n=1261
+==========================================================================================
+------------------------------------------------------------------------------------------
+MODELO: vit_base_patch16_224
+  vit_base_patch16_224/rohu fold1/5: F1=84.23 Acc=85.94 AUC=0.9414 epochs=24
+  vit_base_patch16_224/rohu fold2/5: F1=90.54 Acc=92.13 AUC=0.9578 epochs=30
+  vit_base_patch16_224/rohu fold3/5: F1=92.05 Acc=93.09 AUC=0.9655 epochs=30
+  vit_base_patch16_224/rohu fold4/5: F1=86.25 Acc=89.08 AUC=0.9478 epochs=27
+  vit_base_patch16_224/rohu fold5/5: F1=85.20 Acc=86.84 AUC=0.9451 epochs=30
+  vit_base_patch16_224/rohu POOLED: F1=87.67 Acc=89.45 AUC=0.9514
+------------------------------------------------------------------------------------------
+MODELO: densenet121
+  densenet121/rohu fold1/5: F1=85.35 Acc=86.35 AUC=0.9264 epochs=29
+  densenet121/rohu fold2/5: F1=81.99 Acc=85.43 AUC=0.9124 epochs=30
+  densenet121/rohu fold3/5: F1=85.27 Acc=87.80 AUC=0.9519 epochs=27
+  densenet121/rohu fold4/5: F1=78.80 Acc=83.80 AUC=0.9043 epochs=30
+  densenet121/rohu fold5/5: F1=82.90 Acc=84.65 AUC=0.8878 epochs=18
+  densenet121/rohu POOLED: F1=83.01 Acc=85.57 AUC=0.9140
+LISTO
