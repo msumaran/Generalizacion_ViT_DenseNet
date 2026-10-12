@@ -30,8 +30,7 @@ Detalle de cada cálculo en `Indicadores_Robustez_TRD_Gap_RBE.docx`.
 ## Dominios evaluados
 
 - **Trucha**: 1,150 imágenes (OneDrive, Perú), dominio objetivo 1.
-- **Rohu**: 1,261 imágenes — dataset combinado 70 % Trucha (805) / 30 % Rohu Kaggle (456),
-  porque Rohu puro tiene un atajo de fecha/sesión que infla el F1 a ~99–100 %.
+- **Rohu**: 1,261 imágenes, dominio objetivo 2.
 
 ## Contenido
 
@@ -63,5 +62,5 @@ estándar). La adaptación es supervisada (usa etiquetas del dominio objetivo).
 python finetune_target_x2.py --dominio onedrive_trucha --congelado --epochs 30 --patience 8 --sin-x2
 
 # Rohu
-python experimento_dataset_mixto.py --frac-trucha 0.7 --frac-rohu 0.3 --epochs 30 --patience 8 --sin-x2
+python experimento_dataset_mixto.py --epochs 30 --patience 8 --sin-x2
 ```
