@@ -1,0 +1,13 @@
+model,domain,fold,n_val,f1,accuracy,auc,epochs_run
+vit_base_patch16_224,rohu,1,249,84.23,85.94,0.9414,24
+vit_base_patch16_224,rohu,2,254,90.54,92.13,0.9578,30
+vit_base_patch16_224,rohu,3,246,92.05,93.09,0.9655,30
+vit_base_patch16_224,rohu,4,284,86.25,89.08,0.9478,27
+vit_base_patch16_224,rohu,5,228,85.2,86.84,0.9451,30
+vit_base_patch16_224,rohu,pooled,1261,87.67,89.45,0.9514,
+densenet121,rohu,1,249,85.35,86.35,0.9264,29
+densenet121,rohu,2,254,81.99,85.43,0.9124,30
+densenet121,rohu,3,246,85.27,87.8,0.9519,27
+densenet121,rohu,4,284,78.8,83.8,0.9043,30
+densenet121,rohu,5,228,82.9,84.65,0.8878,18
+densenet121,rohu,pooled,1261,83.01,85.57,0.914,

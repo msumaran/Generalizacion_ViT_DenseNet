@@ -37,13 +37,13 @@ Detalle de cada cálculo en `Indicadores_Robustez_TRD_Gap_RBE.docx`.
 
 | Carpeta / archivo | Contenido |
 |---|---|
-| `1_codigo/` | Código de entrenamiento/evaluación (`finetune_target_x2.py`, `experimento_dataset_mixto.py`, `linear_probe_confmat_roc.py`, `domains.py`, …) y utilidades compartidas |
+| `1_codigo/` | Código de entrenamiento/evaluación (`finetune_target_x2.py`, `experimento_dataset_mixto.py`, `linear_probe_confmat_roc.py`, `domains.py`, …), utilidades compartidas y `generar_documentacion_tecnica.py` (genera la documentación técnica y las gráficas por fold) |
 | `2_logs/` | Logs sin x2: `trucha_congelado_sinx2.log`, `rohu_congelado_sinx2.log`, `rohu_confmat_roc.log` |
-| `3_resultados/` | CSV sin x2 (resumen y por fold), solo ViT-Base/16 y DenseNet-121 |
-| `4_graficas/` | Matrices de confusión y curvas ROC pooled, `{trucha,rohu}_sinx2/{modelo}/` |
+| `3_resultados/` | CSV sin x2 (resumen y por fold), solo ViT-Base/16 y DenseNet-121; `{trucha,rohu}/confmat_roc/{modelo}/` con la matriz de confusión y la curva ROC de cada fold y pooled |
+| `4_graficas/` | Matrices de confusión y curvas ROC, pooled y por fold, `{trucha,rohu}_sinx2/{modelo}/` |
 | `Resultados_ViT_DenseNet.docx` | Tabla de resultados e indicadores |
 | `Indicadores_Robustez_TRD_Gap_RBE.docx` | Indicadores TRD, Gap y RBE con fórmulas instanciadas |
-| `Documentacion_Tecnica_ViT_DenseNet.docx` | Metodología, glosario de fórmulas y detalle por modelo (por fold, matrices, ROC) |
+| `Documentacion_Tecnica_ViT_DenseNet.docx` | Misma estructura que la documentación técnica de Mendeley: metodología en 7 etapas, glosario (incluye OOF/pooled y TRD/Gap/RBE) y detalle por modelo y dominio (por fold, ROC, cálculo pooled). Se genera con `python 1_codigo/generar_documentacion_tecnica.py` |
 
 ## Método
 
