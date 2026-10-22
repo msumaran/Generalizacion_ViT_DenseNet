@@ -312,10 +312,6 @@ def generar(datos, plantilla):
                  "protocolo y el mismo pipeline de entrenamiento que Trucha. Se excluyen 22 imágenes dudosas y "
                  "109 falsos positivos confirmados del recorte de ojo (escama, aleta o borrosa), y se incluyen "
                  "48 rescatadas manualmente.", prefijo="Rohu. ")
-    parrafo(doc, "el conjunto de Rohu combina 805 imágenes de Trucha (70 % de su pool, submuestra "
-                 "estratificada) y 456 de Rohu Kaggle (30 % de su pool), porque Rohu puro tiene un atajo de "
-                 "fecha/sesión que infla el F1 a ~99–100 % (experimento_dataset_mixto.py, construir_dataset_mixto; "
-                 "ver 2_logs/rohu_congelado_sinx2.log).", prefijo="Composición de Rohu: ")
     parrafo(doc, "Las clases no están balanceadas en ninguno de los dos dominios (Mendeley sí lo está, 50/50); "
                  "por eso la métrica central es el F1 macro, que pesa igual a fresco y no_fresco (ver 2.3).")
 
@@ -328,9 +324,9 @@ def generar(datos, plantilla):
     parrafo(doc, "StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=42), agrupando las fotos casi "
                  "idénticas (tomadas en ráfaga, detectadas con detectar_duplicados.py) para que una foto y su casi "
                  "gemela nunca queden una en entrenamiento y otra en evaluación. Por eso el tamaño del fold de "
-                 "evaluación varía entre 228 y 284 imágenes. Las 456 imágenes de Rohu Kaggle forman 193 grupos "
-                 "(108 grupos con 2 o más imágenes casi idénticas; el grupo más grande tiene 15); cada imagen de "
-                 "Trucha es su propio grupo.", prefijo="Rohu. ")
+                 "evaluación varía entre 228 y 284 imágenes. Se detectaron 108 grupos de 2 o más fotos casi "
+                 "idénticas (el más grande con 15); cada una de las demás imágenes es su propio grupo.",
+            prefijo="Rohu. ")
     parrafo(doc, "a diferencia de Mendeley (68/12/20), aquí no hay un fold de validación separado del de "
                  "prueba: el mismo fold sirve para elegir el mejor epoch (1.4) y para reportar sus métricas "
                  "(1.5). Esto puede dar un resultado algo optimista, por lo que las cifras se leen como "
@@ -458,8 +454,7 @@ def generar(datos, plantilla):
         df = pd.read_csv(f"3_resultados/{dom}/congelado_sinx2_por_fold.csv")
         for clave, nombre, *_ in MODELOS:
             for r in df[df.model == clave].itertuples():
-                n_eval = (f"{r.n_val} ({r.n_val_trucha} Trucha / {r.n_val_rohu} Rohu)" if dom == "rohu"
-                          else r.n_val)
+                n_eval = r.n_val
                 filas.append((nombre, dominio, f"Fold {r.fold}", r.n_train, n_eval, f2(r.f1), f2(r.accuracy),
                               r.epochs_run, f"{r.tiempo_s:.1f}"))
             filas.append((nombre, dominio, "Media", "", "", f2(datos[dom, clave]["f1_oficial"]), "", "", ""))
