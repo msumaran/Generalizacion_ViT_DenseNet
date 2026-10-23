@@ -143,6 +143,36 @@ ETAPAS = [  # (titulo, linea 1, linea 2) -- misma figura de flujo que la documen
 ]
 
 
+VERIF = "3_resultados/{dom}/verificacion_10fold"
+PACIENCIA, MAX_EPOCHS = 8, 30
+
+
+def epoch_elegido(epochs_run):
+    """Epoch del mejor val_F1 deducido del early stopping de finetune_eval_fold (corta con paciencia >= 8)."""
+    return str(epochs_run - PACIENCIA) if epochs_run < MAX_EPOCHS else f"{MAX_EPOCHS - PACIENCIA}–{MAX_EPOCHS} (no registrado)"
+
+
+def curvas_epoch(dom, clave, nombre, dominio):
+    """val_F1 por epoch de la corrida de verificacion (10 folds); el punto marca el epoch elegido."""
+    base = f"{VERIF.format(dom=dom)}/{clave}"
+    folds = [pd.read_csv(f"{base}/epochs_fold{k}.csv") for k in range(1, 11)]
+    fig, ax = plt.subplots(figsize=(9, 4.6))
+    for k, e in enumerate(folds, start=1):
+        mejor = e.loc[e.val_f1.idxmax()]
+        linea, = ax.plot(e.epoch, e.val_f1, lw=1.2, label=f"Fold {k}")
+        ax.plot(mejor.epoch, mejor.val_f1, "o", color=linea.get_color(), ms=6)
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("val_F1 macro (%)")
+    ax.set_title(f"{nombre} — {dominio} — val_F1 por epoch (corrida de verificación, 10 folds)")
+    ax.legend(ncol=5, fontsize=8, loc="lower right")
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    ruta = f"4_graficas/{dom}_sinx2/{clave}/val_f1_por_epoch_10fold.png"
+    fig.savefig(ruta, dpi=150)
+    plt.close(fig)
+    return ruta, folds
+
+
 def figura_flujo(ruta="4_graficas/flujo_metodologico.png"):
     n = len(ETAPAS)
     alto = 1.4 + n * 2.12 + 0.6
@@ -525,8 +555,9 @@ def generar(datos, plantilla):
           filas)
     parrafo(doc, "Epochs ejecutados = suma de los 5 folds (máximo 30 por fold; menos de 150 indica early "
                  "stopping). Corresponden a la corrida que guardó matrices de confusión y curvas ROC "
-                 "(linear_probe_confmat_roc.py). No se registró la curva de val_F1 por epoch, por lo que el "
-                 "detalle por modelo no incluye esa gráfica.", prefijo="Nota. ")
+                 "(linear_probe_confmat_roc.py). Esa corrida no registró val_F1 por epoch; el detalle epoch por "
+                 "epoch de la sección 3.x.1 viene de una corrida de verificación con 10 folds (mismo código, "
+                 "datos y semilla), que no reemplaza las cifras presentadas.", prefijo="Nota. ")
 
     titulo(doc, "1.5 Etapa 5 — Evaluación por fold", 2)
     parrafo(doc, "Con las predicciones del mejor epoch de cada fold se arma la matriz de confusión del fold y se "
@@ -714,10 +745,49 @@ def generar(datos, plantilla):
         parrafo(doc, f"F1 macro Mendeley (fuente) = {F1_FUENTE[clave]}   {resumen}   Parámetros = {par}",
                 prefijo="")
         titulo(doc, f"3.{i}.1 Entrenamiento — val_F1 por epoch", 3)
-        parrafo(doc, "La corrida presentada no registró val_F1 por epoch: el código solo guardó las "
-                     "predicciones y métricas del mejor epoch de cada fold (con el número de epochs ejecutados, "
-                     "ver 1.4). Por eso esta subsección no incluye la gráfica de entrenamiento que sí tiene la "
-                     "documentación de Mendeley.", prefijo="Nota. ")
+        archivo(doc, f"3_resultados/{{trucha,rohu}}/confmat_roc/resumen_confmat_roc.csv (corrida presentada) y "
+                     f"3_resultados/{{trucha,rohu}}/verificacion_10fold/{clave}/epochs_fold{{1..10}}.csv "
+                     f"(corrida de verificación)",
+                "finetune_target_x2.py — finetune_eval_fold(): mide val_F1 al final de cada epoch y corta cuando "
+                "pasan 8 epochs seguidos sin mejora.")
+        parrafo(doc, "La corrida presentada (5 folds) solo guardó, por fold, el total de epochs ejecutados y "
+                     "las métricas del mejor epoch. Con eso se arma el resumen por fold. El detalle epoch por "
+                     "epoch viene de la corrida de verificación (10 folds): mismo código, datos, semilla e "
+                     "hiperparámetros, pero con 10 particiones, por lo que sus folds no son los mismos que los "
+                     "de la corrida presentada y sus cifras no la reemplazan.", prefijo="Nota. ")
+        for dom, dominio in DOMINIOS:
+            d = datos[dom, clave]
+            negrita(doc, f"{dominio} — corrida presentada (5 folds): resumen por fold")
+            tabla(doc, ["Fold", "Epoch elegido (mejor val_F1)", "val_F1 en ese epoch", "Total epochs ejecutados"],
+                  [(f"Fold {k}", epoch_elegido(f["epochs"]), f2(metricas(f["cm"])["f1"]), f["epochs"])
+                   for k, f in enumerate(d["folds"], start=1)])
+            parrafo(doc, "el entrenamiento se detiene cuando pasan 8 epochs seguidos sin mejora, así que si "
+                         "el fold paró antes de 30 epochs el mejor fue el epoch total − 8. Si llegó a 30, el mejor "
+                         "está entre el 22 y el 30 y no quedó registrado. val_F1 en ese epoch es el F1 del fold, "
+                         "porque el mismo fold elige el epoch y se evalúa (ver 1.2).", prefijo="Epoch elegido: ",
+                    size=9.5)
+            png, folds = curvas_epoch(dom, clave, nombre, dominio)
+            r = pd.read_csv(f"{VERIF.format(dom=dom)}/resumen.csv")
+            r = r[(r.model == clave) & (r.fold != "pooled")]
+            negrita(doc, f"{dominio} — corrida de verificación (10 folds): val_F1 por epoch")
+            imagenes(doc, [png], 15)
+            leyenda(doc, f"{nombre} — {dominio} — val_F1 por epoch en la corrida de verificación. El punto marca "
+                         f"el epoch elegido (mejor val_F1 de ese fold).")
+            filas = []
+            for k, (e, (_, fila)) in enumerate(zip(folds, r.iterrows()), start=1):
+                mejor = e.loc[e.val_f1.idxmax()]
+                assert int(mejor.epoch) == int(float(fila.epoch_elegido)) and len(e) == int(float(fila.epochs_run))
+                filas.append((f"Fold {k}", int(mejor.epoch), f2(mejor.val_f1), len(e)))
+            tabla(doc, ["Fold", "Epoch elegido", "val_F1 en ese epoch", "Total epochs ejecutados"], filas)
+            parrafo(doc, f"Media del F1 de los 10 folds = {f2(r.test_f1.mean())} ± {f2(r.test_f1.std())}. "
+                         f"Cada fold k parte del checkpoint de Mendeley del fold ((k − 1) mod 5) + 1.", size=9.5)
+            negrita(doc, "Detalle completo — todos los epochs de cada fold (fila resaltada = epoch elegido):")
+            for k, e in enumerate(folds, start=1):
+                parrafo(doc, f"Fold {k}", italic=True)
+                tabla(doc, ["Epoch", "val_F1", "Mejor hasta ahora", "Paciencia"],
+                      [(int(x.epoch), f2(x.val_f1), f2(x.mejor_hasta_ahora), int(x.paciencia))
+                       for x in e.itertuples()],
+                      resaltar=(int(e.val_f1.idxmax()),))
         sub = 1
         for dom, dominio in DOMINIOS:
             d = datos[dom, clave]
@@ -816,6 +886,8 @@ def generar(datos, plantilla):
         ("F1 oficial por fold y resumen", "3_resultados/{trucha,rohu}/congelado_sinx2_{por_fold,resumen}.csv"),
         ("Matrices de confusión y curvas ROC (por fold y pooled)",
          "3_resultados/{trucha,rohu}/confmat_roc/{modelo}/*.csv y resumen_confmat_roc.csv"),
+        ("val_F1 por epoch (corrida de verificación, 10 folds)",
+         "3_resultados/{trucha,rohu}/verificacion_10fold/{modelo}/epochs_fold{1..10}.csv y resumen.csv"),
         ("Gráficas", "4_graficas/{trucha,rohu}_sinx2/{modelo}/"),
         ("F1 macro de Mendeley (dominio fuente)",
          "Mendeley_ViT_DenseNet/3_resultados_test_por_modelo/metricas_pooled_por_modelo.csv"),
