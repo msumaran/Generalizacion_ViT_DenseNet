@@ -30,14 +30,13 @@ Detalle de cada cálculo en `Indicadores_Robustez_TRD_Gap_RBE.docx`.
 ## Dominios evaluados
 
 - **Trucha**: 1,150 imágenes (OneDrive, Perú), dominio objetivo 1.
-- **Rohu**: 1,261 imágenes — dataset combinado 70 % Trucha (805) / 30 % Rohu Kaggle (456),
-  porque Rohu puro tiene un atajo de fecha/sesión que infla el F1 a ~99–100 %.
+- **Rohu**: 1,261 imágenes, dominio objetivo 2.
 
 ## Contenido
 
 | Carpeta / archivo | Contenido |
 |---|---|
-| `1_codigo/` | Código de entrenamiento/evaluación (`finetune_target_x2.py`, `experimento_dataset_mixto.py`, `linear_probe_confmat_roc.py`, `domains.py`, …), utilidades compartidas y `generar_documentacion_tecnica.py` (genera la documentación técnica y las gráficas por fold) |
+| `1_codigo/` | Código de entrenamiento/evaluación (`finetune_target_x2.py`, `experimento_rohu.py`, `linear_probe_confmat_roc.py`, `domains.py`, …), utilidades compartidas y `generar_documentacion_tecnica.py` (genera la documentación técnica y las gráficas por fold) |
 | `2_logs/` | Logs sin x2: `trucha_congelado_sinx2.log`, `rohu_congelado_sinx2.log`, `rohu_confmat_roc.log` |
 | `3_resultados/` | CSV sin x2 (resumen y por fold), solo ViT-Base/16 y DenseNet-121; `{trucha,rohu}/confmat_roc/{modelo}/` con la matriz de confusión y la curva ROC de cada fold y pooled |
 | `4_graficas/` | Matrices de confusión y curvas ROC, pooled y por fold, `{trucha,rohu}_sinx2/{modelo}/` |
@@ -63,5 +62,5 @@ estándar). La adaptación es supervisada (usa etiquetas del dominio objetivo).
 python finetune_target_x2.py --dominio onedrive_trucha --congelado --epochs 30 --patience 8 --sin-x2
 
 # Rohu
-python experimento_dataset_mixto.py --frac-trucha 0.7 --frac-rohu 0.3 --epochs 30 --patience 8 --sin-x2
+python experimento_rohu.py --epochs 30 --patience 8 --sin-x2
 ```

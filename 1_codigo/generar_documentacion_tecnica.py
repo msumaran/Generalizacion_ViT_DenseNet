@@ -445,7 +445,7 @@ def generar(datos, plantilla):
                 "AUC (pooled)", "F1 oficial (media 5 folds)"], filas, resaltar=(0, 2))
     parrafo(doc, "los valores pooled provienen de la corrida de matrices de confusión y ROC "
                  "(linear_probe_confmat_roc.py, misma configuración, reentrenada), por eso difieren levemente "
-                 "del F1 oficial (finetune_target_x2.py y experimento_dataset_mixto.py, 3_resultados/"
+                 "del F1 oficial (finetune_target_x2.py y experimento_rohu.py, 3_resultados/"
                  "{trucha,rohu}/congelado_sinx2_resumen.csv). Los indicadores de robustez usan el F1 oficial.",
             prefijo="Nota: ", italic=True, size=9.5)
     negrita(doc, "F1 oficial por fold (corrida de 3_resultados/, base de los indicadores de robustez)")
@@ -460,7 +460,7 @@ def generar(datos, plantilla):
             filas.append((nombre, dominio, "Media", "", "", f2(datos[dom, clave]["f1_oficial"]), "", "", ""))
     tabla(doc, ["Modelo", "Dominio", "Fold", "N entrenamiento", "N evaluación", "F1", "Accuracy", "Epochs",
                 "Tiempo (s)"], filas, resaltar=(5, 11, 17, 23))
-    parrafo(doc, "corrida de finetune_target_x2.py (Trucha) y experimento_dataset_mixto.py (Rohu): mismo "
+    parrafo(doc, "corrida de finetune_target_x2.py (Trucha) y experimento_rohu.py (Rohu): mismo "
                  "método y semilla que la corrida de matrices de confusión, pero ejecutada aparte; por eso el F1 "
                  "de cada fold difiere levemente del de las secciones 3.x. Logs: " + LOG["trucha"] + " y "
                  + LOG["rohu"] + ".", prefijo="Nota: ", italic=True, size=9.5)
@@ -655,7 +655,7 @@ def generar(datos, plantilla):
     parrafo(doc, "Todos los números de este documento provienen de archivos reales, sin datos simulados.")
     tabla(doc, ["Qué", "Dónde"], [
         ("Código de entrenamiento y evaluación",
-         "1_codigo/finetune_target_x2.py, experimento_dataset_mixto.py, linear_probe_confmat_roc.py"),
+         "1_codigo/finetune_target_x2.py, experimento_rohu.py, linear_probe_confmat_roc.py"),
         ("Generación de este documento y de las gráficas por fold", "1_codigo/generar_documentacion_tecnica.py"),
         ("Logs de entrenamiento", f"{LOG['trucha']}, {LOG['rohu']}, 2_logs/rohu_confmat_roc.log"),
         ("F1 oficial por fold y resumen", "3_resultados/{trucha,rohu}/congelado_sinx2_{por_fold,resumen}.csv"),

@@ -1,25 +1,18 @@
-"""Experimento exploratorio (fuera del diseno original de tesis): un
-dominio objetivo NUEVO que mezcla el 50% de Trucha + el 50% de Rohu, para
-ver si combinar ambas especies ayuda al linear probe (congelado) a
-generalizar mejor que cualquiera de los dos dominios por separado.
+"""Linear probe (backbone congelado) sobre el dominio Rohu.
 
-Muestreo -- una fraccion configurable de cada dominio (--frac-trucha,
---frac-rohu; default 0.5/0.5, el mixto original), estratificado por clase
-(fresco/no_fresco) dentro de cada uno, semilla fija para reproducibilidad:
-  default 50/50: Trucha ~575 de 1150   Rohu ~760 de 1521   Total ~1335
+Muestreo -- fraccion de cada pool de imagenes (--frac-trucha, --frac-rohu;
+default 0.7/0.3, los valores del experimento presentado), estratificado
+por clase (fresco/no_fresco), semilla fija para reproducibilidad.
 
-Particion de folds -- StratifiedGroupKFold sobre el dataset combinado.
-Los grupos evitan la fuga de casi-duplicados de Rohu (ver
-detectar_duplicados.py): cada imagen de Rohu recibe el id de su grupo de
-casi-duplicado, cada imagen de Trucha un id propio (su tasa de duplicados
-es despreciable, 23/1150 -- no justifica agrupar).
+Particion de folds -- StratifiedGroupKFold. Los grupos evitan la fuga de
+casi-duplicados (ver detectar_duplicados.py): cada imagen del pool Rohu
+recibe el id de su grupo de casi-duplicado, cada imagen del pool Trucha un
+id propio (su tasa de duplicados es despreciable, 23/1150).
 
-El checkpoint de partida sigue siendo el de Mendeley (fold-a-fold, igual
-que el resto del proyecto) -- este dominio mixto no tiene su propio
-checkpoint preentrenado, es un dominio objetivo nuevo como Trucha/Rohu.
+El checkpoint de partida es el de Mendeley (fold-a-fold, igual que el resto
+del proyecto).
 
-Uso: python experimento_dataset_mixto.py [--epochs 30] [--patience 8] [--sin-x2]
-     [--frac-trucha 0.7] [--frac-rohu 0.3]
+Uso: python experimento_rohu.py [--epochs 30] [--patience 8] [--sin-x2]
 """
 import argparse
 import csv
@@ -53,7 +46,7 @@ def submuestra_estratificada(labels, frac, seed):
     return np.array(sorted(idx))
 
 
-def construir_dataset_mixto(frac_trucha=0.5, frac_rohu=0.5):
+def construir_dataset_rohu(frac_trucha=0.7, frac_rohu=0.3):
     t_paths, t_labels = collect_trucha()
     r_paths, r_labels = collect_rohu_eyes()
 
@@ -77,9 +70,7 @@ def construir_dataset_mixto(frac_trucha=0.5, frac_rohu=0.5):
     origen = np.array(["trucha"] * len(t_paths_s) + ["rohu"] * len(r_paths_s))
     grupos = np.concatenate([t_grupos, r_grupos])
 
-    print(f"Dataset mixto: {len(paths)} imagenes "
-          f"({len(t_paths_s)} trucha [{frac_trucha*100:.0f}% de su pool] + "
-          f"{len(r_paths_s)} rohu [{frac_rohu*100:.0f}% de su pool])")
+    print(f"Rohu: {len(paths)} imagenes")
     print(f"  fresco={int((labels==0).sum())}  no_fresco={int((labels==1).sum())}")
     return paths, labels, origen, grupos
 
@@ -89,20 +80,19 @@ def main():
     ap.add_argument("--epochs", type=int, default=30)
     ap.add_argument("--patience", type=int, default=8)
     ap.add_argument("--sin-x2", action="store_true")
-    ap.add_argument("--frac-trucha", type=float, default=0.5,
-                     help="Fraccion del pool de Trucha a usar (default 0.5, el mixto original)")
-    ap.add_argument("--frac-rohu", type=float, default=0.5,
-                     help="Fraccion del pool de Rohu a usar (default 0.5, el mixto original)")
+    ap.add_argument("--frac-trucha", type=float, default=0.7,
+                     help="Fraccion del pool de Trucha a usar (default 0.7)")
+    ap.add_argument("--frac-rohu", type=float, default=0.3,
+                     help="Fraccion del pool de Rohu a usar (default 0.3)")
     args = ap.parse_args()
     usar_x2 = not args.sin_x2
 
-    paths, labels, origen, grupos = construir_dataset_mixto(args.frac_trucha, args.frac_rohu)
+    paths, labels, origen, grupos = construir_dataset_rohu(args.frac_trucha, args.frac_rohu)
     skf = StratifiedGroupKFold(n_splits=N_FOLDS, shuffle=True, random_state=SEED)
     splits = list(skf.split(np.zeros(len(labels)), labels, groups=grupos))
 
     sufijo = "x2" if usar_x2 else "sinx2"
-    balance = f"t{int(round(args.frac_trucha*100))}_r{int(round(args.frac_rohu*100))}"
-    out_csv = os.path.join(OUT_DIR, f"experimento_mixto_{balance}_congelado_{sufijo}_por_fold.csv")
+    out_csv = os.path.join(OUT_DIR, f"experimento_rohu_congelado_{sufijo}_por_fold.csv")
     fieldnames = ["model", "fold", "n_train", "n_val", "n_val_trucha", "n_val_rohu",
                   "epochs_run", "f1", "accuracy", "tiempo_s"]
     rows = []
@@ -152,7 +142,7 @@ def main():
         mean_f1 = float(np.mean(f1s))
         print(f"{model_name:30s} F1={mean_f1:.2f} (n_folds={len(f1s)})", flush=True)
         summary.append({"model": model_name, "f1_mean": round(mean_f1, 2), "n_folds": len(f1s)})
-    out_summary = os.path.join(OUT_DIR, f"experimento_mixto_{balance}_congelado_{sufijo}_resumen.csv")
+    out_summary = os.path.join(OUT_DIR, f"experimento_rohu_congelado_{sufijo}_resumen.csv")
     with open(out_summary, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(summary[0].keys()))
         w.writeheader()

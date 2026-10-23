@@ -1,8 +1,8 @@
 """Matriz de confusion + curva ROC para el metodo del reporte (congelado /
 linear probe, 30 epocas, con x2 -- seccion 10 de Informe_Resultados.md),
-en Trucha y en el dataset combinado (50% Trucha + 50% Rohu).
+en Trucha y en Rohu.
 
-A diferencia de finetune_target_x2.py / experimento_dataset_mixto.py (que
+A diferencia de finetune_target_x2.py / experimento_rohu.py (que
 solo guardan F1/accuracy agregado por fold), esto vuelve a entrenar cada
 fold guardando las predicciones y probabilidades del MEJOR epoch (el que
 dio el F1 reportado en la seccion 10) para poder construir:
@@ -34,7 +34,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from detectar_duplicados import grupos_casi_duplicados
 from domains import DOMAINS
 from eval_generalizacion import CKPT_DIR, MODELOS
-from experimento_dataset_mixto import construir_dataset_mixto
+from experimento_rohu import construir_dataset_rohu
 from finetune_target_x2 import finetune_eval_fold
 from metrics import compute_metrics
 
@@ -82,8 +82,8 @@ def splits_trucha():
     return paths, labels, list(skf.split(np.zeros(len(labels)), labels))
 
 
-def splits_combinado():
-    paths, labels, origen, grupos = construir_dataset_mixto()
+def splits_rohu():
+    paths, labels, origen, grupos = construir_dataset_rohu()
     skf = StratifiedGroupKFold(n_splits=N_FOLDS, shuffle=True, random_state=SEED)
     return paths, labels, list(skf.split(np.zeros(len(labels)), labels, groups=grupos))
 
@@ -178,7 +178,7 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
     dominios = {
         "trucha": splits_trucha,
-        "combinado": splits_combinado,
+        "rohu": splits_rohu,
     }
     all_rows = []
     for domain_key, split_fn in dominios.items():
