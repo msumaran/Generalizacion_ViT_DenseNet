@@ -1,6 +1,7 @@
 """Genera Documentacion_Tecnica_ViT_DenseNet.docx con la misma estructura y formato que
-Documentacion_Tecnica_10_Modelos.docx (repo Mendeley_ViT_DenseNet): metodologia por etapas,
-glosario, y detalle por modelo con resultados por fold, curvas ROC y calculo pooled.
+Documentacion_Tecnica_10_Modelos.docx (repo Mendeley_ViT_DenseNet): metodologia por etapas con
+figura de flujo y arquitectura, glosario de formulas, detalle por modelo con resultados por fold,
+curvas ROC y calculo pooled, y anexos de trazabilidad y glosario de terminos.
 
 Todos los numeros salen de los CSV de 3_resultados/; las graficas por fold se generan aqui
 en 4_graficas/{trucha,rohu}_sinx2/{modelo}/.
@@ -19,6 +20,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 from docx import Document
+from matplotlib.patches import FancyBboxPatch
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
@@ -121,6 +123,51 @@ def graficas_folds(datos, dom, clave, nombre, dominio):
     fig.savefig(f"{carpeta}/roc_curve_folds.png", dpi=150)
     plt.close(fig)
     return f"{carpeta}/confusion_matrix_folds.png", f"{carpeta}/roc_curve_folds.png"
+
+
+ETAPAS = [  # (titulo, linea 1, linea 2) -- misma figura de flujo que la documentacion de Mendeley
+    ("Dominios objetivo y preparación de datos", "Trucha: 1,150 imágenes (481 fresco / 669 no_fresco)",
+     "Rohu: 1,261 imágenes (422 fresco / 839 no_fresco)"),
+    ("Validación cruzada 5-fold en cada dominio", "Trucha: StratifiedKFold · Rohu: StratifiedGroupKFold",
+     "por corrida: 4 folds entrenan · 1 fold evalúa (semilla 42)"),
+    ("Configuración de los 2 modelos (congelado)", "ViT-Base/16 + DenseNet-121 desde el checkpoint de Mendeley",
+     "backbone congelado · solo se entrena la cabeza"),
+    ("Entrenamiento de la cabeza y mejor epoch", "Máx. 30 epochs · early stopping = 8",
+     "criterio: mejor val_F1 macro por fold"),
+    ("Evaluación por fold", "Mejor epoch → fold de evaluación",
+     "matriz de confusión + probabilidades + métricas"),
+    ("Consolidación OOF / pooled", "Concatenación de los 5 folds de evaluación",
+     "1,150 (Trucha) y 1,261 (Rohu) predicciones out-of-fold"),
+    ("Comparación e indicadores de robustez", "F1 macro · Accuracy · AUC · estabilidad",
+     "TRD · Gap · RBE frente a Mendeley (dominio fuente)"),
+]
+
+
+def figura_flujo(ruta="4_graficas/flujo_metodologico.png"):
+    n = len(ETAPAS)
+    alto = 1.4 + n * 2.12 + 0.6
+    fig, ax = plt.subplots(figsize=(7, alto / 2))
+    ax.set_xlim(0, 14)
+    ax.set_ylim(0, alto)
+    ax.axis("off")
+    ax.text(7, alto - 0.6, "Flujo metodológico — Generalización cross-dataset", ha="center", va="center",
+            fontsize=13, fontweight="bold")
+    y = alto - 1.4
+    for k, (tit, l1, l2) in enumerate(ETAPAS, start=1):
+        ax.add_patch(FancyBboxPatch((1.2, y - 1.52), 11.6, 1.52, boxstyle="round,pad=0,rounding_size=0.12",
+                                    linewidth=1.6, edgecolor="#1F4E79", facecolor="#EAF0F8"))
+        ax.text(1.6, y - 0.42, f"{k}. {tit}", va="center", fontsize=11, fontweight="bold")
+        ax.text(1.6, y - 0.86, l1, va="center", fontsize=9)
+        ax.text(1.6, y - 1.2, l2, va="center", fontsize=9)
+        if k < n:
+            ax.annotate("", xy=(7, y - 2.08), xytext=(7, y - 1.6),
+                        arrowprops=dict(arrowstyle="-|>", color="#404040", lw=1.6))
+        y -= 2.12
+    ax.text(7, 0.4, "Resultado del flujo: robustez de ViT-Base/16 y DenseNet-121 ante el cambio de dominio, "
+            "con evidencia trazable.", ha="center", va="center", fontsize=8.5)
+    fig.savefig(ruta, dpi=200, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    return ruta
 
 
 # --- formato (igual que Documentacion_Tecnica_10_Modelos.docx) ----------------
@@ -274,6 +321,108 @@ def f2(x):
 
 
 # --- documento -----------------------------------------------------------------
+GLOSARIO = [
+    ("Accuracy (exactitud)", "Porcentaje de imágenes clasificadas correctamente sobre el total: (TP+TN)/total × 100."),
+    ("AdamW", "Optimizador que ajusta los pesos con la regla de Adam y aplica el weight decay por separado del "
+              "gradiente."),
+    ("AUC", "Área bajo la curva ROC. Mide qué tan bien el modelo ordena las imágenes por probabilidad, sin "
+            "depender de un umbral."),
+    ("Augmentación x2", "Variante en la que cada imagen de entrenamiento aparece dos veces por epoch con "
+                        "transformaciones distintas. Este documento usa la corrida sin x2."),
+    ("Backbone", "Parte de la red que extrae las características de la imagen; sobre ella va la cabeza de "
+                 "clasificación."),
+    ("Backbone congelado", "Backbone con pesos fijos (sin gradiente) y en modo eval(); no cambia durante el "
+                           "entrenamiento en el dominio objetivo."),
+    ("Batch size", "Cantidad de imágenes que el modelo procesa juntas antes de actualizar los pesos (8 en "
+                   "ViT-Base/16, 16 en DenseNet-121)."),
+    ("BatchNorm", "Capa que normaliza las activaciones con estadísticas de los datos; con el backbone en modo "
+                  "eval() esas estadísticas no se actualizan."),
+    ("Cabeza de clasificación", "Última capa lineal del modelo, que convierte las características en las dos "
+                                "clases; es la única parte que se entrena aquí."),
+    ("Casi-duplicado", "Foto prácticamente idéntica a otra (por ejemplo, tomada en ráfaga). Se detectan con "
+                       "detectar_duplicados.py y se mantienen en el mismo fold."),
+    ("Checkpoint", "Archivo (.pt) con los pesos de un modelo. Aquí cada fold parte del checkpoint de Mendeley "
+                   "del mismo índice de fold."),
+    ("Clase positiva", "Clase que se toma como referencia para contar TP, FP, FN y TN; en este documento es "
+                       "fresco, salvo cuando se indica lo contrario."),
+    ("CNN", "Red neuronal convolucional: arquitectura que procesa la imagen con filtros locales (DenseNet-121)."),
+    ("Cross-dataset", "Evaluación de un modelo entrenado en un conjunto de datos sobre otro conjunto distinto."),
+    ("CrossEntropyLoss", "Función de pérdida de clasificación que penaliza la probabilidad baja asignada a la "
+                         "clase correcta."),
+    ("Curva ROC", "Gráfica de la tasa de verdaderos positivos frente a la de falsos positivos para todos los "
+                  "umbrales posibles."),
+    ("Data augmentation", "Transformaciones aleatorias aplicadas solo a las imágenes de entrenamiento (recorte, "
+                          "volteo, color, blur, rotación, erasing)."),
+    ("Desviación estándar muestral", "Medida de dispersión de los 5 F1 de fold, calculada con n − 1 en el "
+                                     "denominador. Un valor bajo indica un modelo estable."),
+    ("Dominio fuente", "Conjunto con el que se entrenaron los modelos base: Mendeley (8,000 imágenes)."),
+    ("Dominio objetivo", "Conjunto nuevo al que se transfiere el modelo: Trucha o Rohu."),
+    ("Early stopping", "Regla que detiene el entrenamiento cuando val_F1 no mejora durante un número de epochs "
+                       "(paciencia = 8)."),
+    ("Epoch", "Una pasada completa del modelo por todas las imágenes de entrenamiento."),
+    ("Especificidad", "De las imágenes que no son de la clase evaluada, porcentaje que el modelo descartó "
+                      "correctamente: TN/(TN+FP) × 100."),
+    ("F1 macro", "Promedio simple del F1 de las dos clases (fresco y no_fresco). Es la métrica principal de este "
+                 "documento."),
+    ("F1-Score", "Media armónica de Precisión y Recall de una clase: 2 × P × R / (P + R)."),
+    ("FN (falso negativo)", "Imagen de la clase evaluada que el modelo asignó a la otra clase."),
+    ("Fold", "Cada una de las 5 particiones de un dominio. En la corrida k, el fold k se evalúa y los otros 4 "
+             "entrenan la cabeza."),
+    ("FP (falso positivo)", "Imagen de la otra clase que el modelo asignó a la clase evaluada."),
+    ("Fuga de información", "Situación en la que datos de evaluación influyen en el entrenamiento, lo que infla "
+                            "las métricas; los grupos de casi-duplicados la evitan."),
+    ("Gap (brecha de error)", "Aumento del error al pasar del dominio fuente al objetivo: Error_objetivo − "
+                              "Error_fuente (ver 2.6)."),
+    ("ImageNet", "Conjunto de imágenes de referencia con el que se preentrenan los modelos; también define la "
+                 "normalización de las imágenes."),
+    ("Inferencia", "Uso del modelo ya entrenado para predecir imágenes, sin modificar sus pesos."),
+    ("Learning rate", "Tamaño del paso con que el optimizador actualiza los pesos (aquí 1e-4)."),
+    ("Linear probe (congelado)", "Método de transferencia que congela el backbone y entrena solo la cabeza de "
+                                 "clasificación en el dominio objetivo."),
+    ("Matriz de confusión", "Tabla 2 × 2 que cruza la clase real (filas) con la clase predicha (columnas); de "
+                            "ella salen TP, FP, FN y TN."),
+    ("Matriz pooled", "Suma celda a celda de las 5 matrices de fold de un modelo; suma 1,150 imágenes en Trucha "
+                      "y 1,261 en Rohu."),
+    ("MPS", "Metal Performance Shaders: aceleración por GPU de PyTorch en equipos Apple."),
+    ("OOF (out-of-fold)", "Predicción que recibe una imagen de la cabeza entrenada con los otros 4 folds, que "
+                          "no la vio en entrenamiento."),
+    ("Paciencia", "Número de epochs seguidos sin mejora de val_F1 que se toleran antes del early stopping."),
+    ("Parámetros", "Cantidad de pesos del modelo, en millones (M); los entrenables aquí son solo los de la "
+                   "cabeza."),
+    ("Pooled", "Resultado calculado una sola vez sobre todas las predicciones OOF concatenadas, no como promedio "
+               "de folds."),
+    ("Precisión", "De las imágenes que el modelo asignó a una clase, porcentaje correcto: TP/(TP+FP) × 100."),
+    ("PyTorch", "Biblioteca de deep learning usada para entrenar y evaluar los modelos."),
+    ("RBE (reducción de brecha de error)", "Cuánto reduce un modelo el Gap frente al baseline DenseNet-121, en "
+                                           "porcentaje (ver 2.6)."),
+    ("Recall (sensibilidad)", "De las imágenes de una clase, porcentaje que el modelo detectó: TP/(TP+FN) × 100."),
+    ("Scheduler coseno", "Regla que reduce el learning rate siguiendo una curva coseno a lo largo de los epochs "
+                         "(CosineAnnealingLR)."),
+    ("scikit-learn", "Biblioteca de machine learning usada para la partición (StratifiedKFold, "
+                     "StratifiedGroupKFold) y las métricas."),
+    ("Semilla (random_state)", "Número fijo (42) que hace reproducibles los procesos aleatorios, como la "
+                               "partición de los datos."),
+    ("Softmax", "Función que convierte las salidas del modelo en probabilidades por clase que suman 1."),
+    ("StratifiedGroupKFold", "Partición en k folds que mantiene la proporción de clases y deja cada grupo de "
+                             "casi-duplicados completo en un solo fold (Rohu)."),
+    ("StratifiedKFold", "Partición en k folds que mantiene en cada fold la misma proporción de clases (Trucha)."),
+    ("timm", "Biblioteca de PyTorch con las arquitecturas y pesos preentrenados de los modelos."),
+    ("TN (verdadero negativo)", "Imagen de la otra clase que el modelo también asignó a la otra clase."),
+    ("TP (verdadero positivo)", "Imagen de la clase evaluada que el modelo asignó a esa clase."),
+    ("Transformer", "Arquitectura basada en mecanismos de atención; en visión divide la imagen en parches (ViT)."),
+    ("TRD (tasa de retención del desempeño)", "Porcentaje del F1 de Mendeley que el modelo conserva en el dominio "
+                                              "objetivo (ver 2.6)."),
+    ("Umbral", "Probabilidad de corte para decidir la clase; la matriz de confusión usa 0.5."),
+    ("val_F1", "F1 macro sobre el fold de evaluación, medido al final de cada epoch para elegir el mejor."),
+    ("Validación cruzada", "Esquema en el que cada fold se evalúa una vez, de modo que todas las imágenes se "
+                           "evalúan fuera de muestra."),
+    ("ViT", "Vision Transformer: aplica un Transformer a parches de 16 × 16 píxeles de la imagen; aquí se usa "
+            "ViT-Base/16."),
+    ("Weight decay", "Penalización que reduce los pesos grandes para evitar sobreajuste (aquí 1e-4)."),
+    ("Zero-shot", "Evaluación sin ningún entrenamiento en el dominio objetivo; no es el método de este documento."),
+]
+
+
 def generar(datos, plantilla):
     doc = nuevo_documento(plantilla)
     p = parrafo(doc, "", centrado=True)
@@ -292,17 +441,13 @@ def generar(datos, plantilla):
     titulo(doc, "1. Metodología — flujo en 7 etapas", 1)
     parrafo(doc, "El experimento mide cuánto conservan ViT-Base/16 y DenseNet-121, entrenados sobre Mendeley "
                  "(dominio fuente; ver Documentacion_Tecnica_10_Modelos.docx), al pasar a dos dominios objetivo: "
-                 "Trucha y Rohu. Cada etapa del flujo se documenta en una subsección: la etapa k corresponde a la "
-                 "sección 1.k.")
-    tabla(doc, ["Etapa del flujo", "Dónde se documenta"], [
-        ("1. Dominios objetivo y preparación de datos", "1.1"),
-        ("2. Validación cruzada 5-fold en cada dominio", "1.2"),
-        ("3. Configuración de los 2 modelos (congelado)", "1.3"),
-        ("4. Entrenamiento de la cabeza y selección del mejor epoch", "1.4"),
-        ("5. Evaluación por fold", "1.5 y 3.x (resultados por fold)"),
-        ("6. Consolidación OOF / pooled", "1.6 y 3.x (resultado pooled)"),
-        ("7. Comparación e indicadores de robustez (TRD, Gap, RBE)", "1.7 y 2.6"),
-    ])
+                 "Trucha y Rohu.")
+    imagenes(doc, [figura_flujo()], 12)
+    leyenda(doc, "Flujo metodológico — generalización cross-dataset de ViT-Base/16 y DenseNet-121 (7 etapas, de "
+                 "la preparación de los dominios objetivo a los indicadores de robustez).")
+    parrafo(doc, "Cada etapa del flujo se documenta en una subsección: la etapa k corresponde a la sección 1.k. "
+                 "El glosario de fórmulas está en la sección 2, el detalle por modelo y dominio en la sección 3 "
+                 "y el glosario de términos técnicos en el Anexo B.")
 
     titulo(doc, "1.1 Etapa 1 — Dominios objetivo y preparación de datos", 2)
     parrafo(doc, "Trucha: 1,150 imágenes (OneDrive), 481 fresco / 669 no_fresco, dominio objetivo original del "
@@ -349,7 +494,12 @@ def generar(datos, plantilla):
     parrafo(doc, "cada imagen de entrenamiento aparece una sola vez por epoch, con la augmentación "
                  "estocástica estándar de get_transforms_v3 (recorte, flip, color, blur, rotación, erasing). La "
                  "evaluación nunca se aumenta.", prefijo="Sin augmentación x2: ")
-    negrita(doc, "Entorno de ejecución")
+    negrita(doc, "Arquitectura del sistema y entorno de ejecución")
+    parrafo(doc, "Flujo de datos entre las cuatro etapas del pipeline (ingesta, entrenamiento, evaluación y "
+                 "reportes) y los scripts que las ejecutan — desde las imágenes de Trucha y Rohu y los "
+                 "checkpoints de Mendeley hasta los resultados documentados.")
+    imagenes(doc, ["4_graficas/arquitectura_sistema.png"], 16)
+    negrita(doc, "Especificaciones técnicas del entorno de ejecución:")
     tabla(doc, ["Componente", "Detalle"], [
         ("Acelerador", "Apple MPS — torch.backends.mps (Dispositivo: mps, según los logs de 2_logs/)"),
         ("Deep learning", "PyTorch + torchvision (entrenamiento, tensores, transforms)"),
@@ -563,7 +713,12 @@ def generar(datos, plantilla):
                                for dom, dominio in DOMINIOS)
         parrafo(doc, f"F1 macro Mendeley (fuente) = {F1_FUENTE[clave]}   {resumen}   Parámetros = {par}",
                 prefijo="")
-        sub = 0
+        titulo(doc, f"3.{i}.1 Entrenamiento — val_F1 por epoch", 3)
+        parrafo(doc, "La corrida presentada no registró val_F1 por epoch: el código solo guardó las "
+                     "predicciones y métricas del mejor epoch de cada fold (con el número de epochs ejecutados, "
+                     "ver 1.4). Por eso esta subsección no incluye la gráfica de entrenamiento que sí tiene la "
+                     "documentación de Mendeley.", prefijo="Nota. ")
+        sub = 1
         for dom, dominio in DOMINIOS:
             d = datos[dom, clave]
             ruta = f"3_resultados/{dom}/confmat_roc/{clave}"
@@ -665,6 +820,10 @@ def generar(datos, plantilla):
         ("F1 macro de Mendeley (dominio fuente)",
          "Mendeley_ViT_DenseNet/3_resultados_test_por_modelo/metricas_pooled_por_modelo.csv"),
     ])
+    titulo(doc, "Anexo B. Glosario de términos técnicos", 1)
+    parrafo(doc, "Términos técnicos usados en este documento, en orden alfabético. Las fórmulas de las métricas "
+                 "están en la sección 2.")
+    tabla(doc, ["Término", "Definición"], sorted(GLOSARIO, key=lambda t: t[0].lower()))
     doc.save(OUT)
 
 

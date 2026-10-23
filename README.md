@@ -42,7 +42,7 @@ Detalle de cada cálculo en `Indicadores_Robustez_TRD_Gap_RBE.docx`.
 | `4_graficas/` | Matrices de confusión y curvas ROC, pooled y por fold, `{trucha,rohu}_sinx2/{modelo}/` |
 | `Resultados_ViT_DenseNet.docx` | Tabla de resultados e indicadores |
 | `Indicadores_Robustez_TRD_Gap_RBE.docx` | Indicadores TRD, Gap y RBE con fórmulas instanciadas |
-| `Documentacion_Tecnica_ViT_DenseNet.docx` | Misma estructura que la documentación técnica de Mendeley: metodología en 7 etapas, glosario (incluye OOF/pooled y TRD/Gap/RBE) y detalle por modelo y dominio (por fold, ROC, cálculo pooled). Se genera con `python 1_codigo/generar_documentacion_tecnica.py` |
+| `Documentacion_Tecnica_ViT_DenseNet.docx` | Misma estructura que la documentación técnica de Mendeley: metodología en 7 etapas (con figura de flujo y arquitectura del sistema), glosario de fórmulas (incluye OOF/pooled y TRD/Gap/RBE), detalle por modelo y dominio (por fold, ROC, cálculo pooled) y anexos de trazabilidad y glosario de términos. Se genera con `python 1_codigo/generar_arquitectura_sistema.py` y luego `python 1_codigo/generar_documentacion_tecnica.py` |
 
 ## Método
 
