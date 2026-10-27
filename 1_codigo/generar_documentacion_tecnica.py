@@ -775,9 +775,21 @@ def generar(datos, plantilla):
             imagenes(doc, [png], 15)
             leyenda(doc, f"{nombre} — {dominio} — val_F1 por epoch. El punto marca el epoch elegido (mejor val_F1 "
                          f"de ese fold).")
-            tabla(doc, ["Fold", "Epoch elegido", "val_F1 en ese epoch", "Total epochs ejecutados"],
-                  [(f"Fold {k}", f["elegido"], f2(f["ep"].val_f1.max()), f["epochs"])
-                   for k, f in enumerate(d["folds"], start=1)])
+            filas = []
+            for k, f in enumerate(d["folds"], start=1):
+                e = f["ep"]
+                mejor = e.loc[e.val_f1.idxmax()]
+                assert (len(e) == 30 and e.paciencia.iloc[-1] < 8) or (e.paciencia.iloc[-1] == 8 and len(e) == int(mejor.epoch) + 8)
+                parada = "límite de 30 epochs" if e.paciencia.iloc[-1] < 8 else "8 epochs sin mejora"
+                filas.append((f"Fold {k}", (k - 1) % 5 + 1, f["elegido"], f2(mejor.val_f1), len(e), parada))
+            tabla(doc, ["Fold", "Checkpoint Mendeley", "Epoch elegido", "val_F1 en ese epoch", "Epoch de corte",
+                        "Motivo de la parada"], filas)
+            parrafo(doc, "cada fold se entrena hasta 30 epochs y se detiene antes si pasan 8 epochs seguidos sin "
+                         "superar su mejor val_F1 (paciencia = 8). Por eso cada fold corta en un epoch distinto: el "
+                         "corte es el epoch elegido + 8, salvo que el fold siga mejorando y llegue al límite de 30. "
+                         "Qué epoch es el mejor depende de las imágenes del fold y del checkpoint de Mendeley del que "
+                         "parte. Siempre se usa el modelo del epoch elegido, no el del último.",
+                    prefijo="Por qué cada fold para en un epoch distinto: ", size=9.5)
             sd = statistics.stdev(f["f1"] for f in d["folds"])
             parrafo(doc, f"Media del F1 de los 10 folds = {f2(d['f1_oficial'])} ± {f2(sd)}. val_F1 en el epoch "
                          f"elegido es el F1 del fold, porque el mismo fold elige el epoch y se evalúa (ver 1.2). "
