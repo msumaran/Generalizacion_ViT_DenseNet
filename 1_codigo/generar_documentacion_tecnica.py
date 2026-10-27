@@ -19,6 +19,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
+from scipy.stats import wilcoxon
 from docx import Document
 from matplotlib.patches import FancyBboxPatch
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -36,7 +37,9 @@ MODELOS = [  # (clave, nombre, familia, parametros, imagen, batch, cabeza entren
 # metricas_pooled_por_modelo.csv
 F1_FUENTE = {"vit_base_patch16_224": 96.96, "densenet121": 95.66}
 DOMINIOS = [("trucha", "Trucha"), ("rohu", "Rohu")]
-LOG = {"trucha": "2_logs/trucha_congelado_sinx2.log", "rohu": "2_logs/rohu_congelado_sinx2.log"}
+LOG = "2_logs/linear_probe_10fold.log"
+RES = "3_resultados/{dom}/linear_probe_10fold"  # salida de linear_probe_con_test.py --protocolo original --folds 10
+K = 10
 
 AZUL, GRIS, FORMULA = RGBColor(0x1F, 0x4E, 0x78), RGBColor(0x55, 0x55, 0x55), RGBColor(0x1F, 0x4E, 0x78)
 CABECERA, RESALTE = "2A4D7A", "FFE699"
@@ -47,24 +50,31 @@ MAR_LR, MAR_TB = 70, 45
 def cargar():
     datos = {}
     for dom, _ in DOMINIOS:
-        resumen = pd.read_csv(f"3_resultados/{dom}/confmat_roc/resumen_confmat_roc.csv")
-        oficial = pd.read_csv(f"3_resultados/{dom}/congelado_sinx2_resumen.csv")
+        resumen = pd.read_csv(f"{RES.format(dom=dom)}/resumen.csv")
         for clave, *_ in MODELOS:
-            base = f"3_resultados/{dom}/confmat_roc/{clave}"
+            base = f"{RES.format(dom=dom)}/{clave}"
             filas = resumen[resumen.model == clave].set_index("fold")
             folds = []
-            for k in range(1, 6):
+            for k in range(1, K + 1):
                 cm = pd.read_csv(f"{base}/confusion_matrix_fold{k}.csv", index_col=0).values
+                pr = pd.read_csv(f"{base}/predicciones_fold{k}.csv")
+                ep = pd.read_csv(f"{base}/epochs_fold{k}.csv")
                 fila = filas.loc[str(k)]
-                folds.append({"cm": cm, "auc": float(fila.auc), "epochs": int(fila.epochs_run),
-                              "roc": pd.read_csv(f"{base}/roc_curve_fold{k}.csv")})
-                assert abs(metricas(cm)["f1"] - float(fila.f1)) < 0.01, (dom, clave, k)
+                folds.append({"cm": cm, "auc": float(fila.test_auc), "epochs": len(ep), "ep": ep,
+                              "elegido": int(ep.loc[ep.val_f1.idxmax(), "epoch"]), "f1": float(fila.test_f1),
+                              "acc": float(fila.test_accuracy), "n_train": int(float(fila.n_train)),
+                              "tiempo": float(fila.tiempo_s), "roc": pd.read_csv(f"{base}/roc_curve_fold{k}.csv")})
+                # matriz = predicciones del fold; F1, epochs y epoch elegido = resumen.csv
+                assert (cm == pd.crosstab(pr.real, pr.prediccion).reindex(index=[0, 1], columns=[0, 1],
+                                                                             fill_value=0).values).all()
+                assert abs(metricas(cm)["f1"] - float(fila.test_f1)) < 0.01, (dom, clave, k)
+                assert len(ep) == int(float(fila.epochs_run)) and folds[-1]["elegido"] == int(float(fila.epoch_elegido))
             pooled = pd.read_csv(f"{base}/confusion_matrix_pooled.csv", index_col=0).values
             assert (pooled == sum(f["cm"] for f in folds)).all(), (dom, clave)  # pooled = suma de folds
             datos[dom, clave] = {
-                "folds": folds, "pooled": pooled, "auc": float(filas.loc["pooled"].auc),
+                "folds": folds, "pooled": pooled, "auc": float(filas.loc["pooled"].test_auc),
                 "roc": pd.read_csv(f"{base}/roc_curve_pooled.csv"),
-                "f1_oficial": float(oficial[oficial.model == clave].f1_mean.iloc[0]),
+                "f1_oficial": round(statistics.mean(f["f1"] for f in folds), 2),
             }
     return datos
 
@@ -88,39 +98,59 @@ def indicadores(datos, dom, clave):
 
 
 # --- graficas por fold (mismo estilo que Mendeley: cm_folds_* y roc_folds_*) --
+def dibujar_cm(ax, cm, titulo_ax):
+    ax.imshow(cm, cmap="Blues")
+    for i in range(2):
+        for j in range(2):
+            ax.text(j, i, cm[i, j], ha="center", va="center", color="white" if cm[i, j] > cm.max() / 2 else "black")
+    ax.set_xticks([0, 1], ["fresco", "no_fresco"])
+    ax.set_yticks([0, 1], ["fresco", "no_fresco"])
+    ax.set_xlabel("Prediccion")
+    ax.set_title(titulo_ax, fontsize=10)
+
+
 def graficas_folds(datos, dom, clave, nombre, dominio):
     carpeta = f"4_graficas/{dom}_sinx2/{clave}"
-    folds = datos[dom, clave]["folds"]
-    fig, axes = plt.subplots(1, 5, figsize=(20, 4.6))
-    for k, (ax, f) in enumerate(zip(axes, folds), start=1):
-        cm = f["cm"]
-        ax.imshow(cm, cmap="Blues")
-        for i in range(2):
-            for j in range(2):
-                ax.text(j, i, cm[i, j], ha="center", va="center",
-                        color="white" if cm[i, j] > cm.max() / 2 else "black")
-        ax.set_xticks([0, 1], ["fresco", "no_fresco"])
-        ax.set_yticks([0, 1], ["fresco", "no_fresco"])
-        ax.set_xlabel("Prediccion")
-        ax.set_title(f"Fold {k}\nF1={metricas(cm)['f1']:.2f}", fontsize=10)
-    axes[0].set_ylabel("Real")
+    d = datos[dom, clave]
+    fig, axes = plt.subplots(2, 5, figsize=(20, 9))
+    for k, (ax, f) in enumerate(zip(axes.flat, d["folds"]), start=1):
+        dibujar_cm(ax, f["cm"], f"Fold {k}\nF1={metricas(f['cm'])['f1']:.2f}")
+    for ax in axes[:, 0]:
+        ax.set_ylabel("Real")
     fig.suptitle(f"{nombre} — {dominio} — Matrices de confusión por fold", fontsize=13)
     fig.tight_layout()
     fig.savefig(f"{carpeta}/confusion_matrix_folds.png", dpi=150)
     plt.close(fig)
 
-    fig, ax = plt.subplots(figsize=(6, 6))
-    for k, f in enumerate(folds, start=1):
-        ax.plot(f["roc"].fpr, f["roc"].tpr, lw=1.3, alpha=0.8, label=f"Fold {k} (AUC={f['auc']:.4f})")
-    roc = datos[dom, clave]["roc"]
-    ax.plot(roc.fpr, roc.tpr, color="black", lw=2.5, label=f"Pooled (AUC={datos[dom, clave]['auc']:.4f})")
+    fig, ax = plt.subplots(figsize=(6.5, 6.5))
+    for k, f in enumerate(d["folds"], start=1):
+        ax.plot(f["roc"].fpr, f["roc"].tpr, lw=1.2, alpha=0.8, label=f"Fold {k} (AUC={f['auc']:.4f})")
+    ax.plot(d["roc"].fpr, d["roc"].tpr, color="black", lw=2.5, label=f"Pooled (AUC={d['auc']:.4f})")
     ax.plot([0, 1], [0, 1], "--", color="gray", lw=1)
     ax.set_xlabel("Tasa de falsos positivos")
     ax.set_ylabel("Tasa de verdaderos positivos")
-    ax.set_title(f"{nombre} — {dominio} — Curvas ROC: 5 folds + pooled")
-    ax.legend(loc="lower right", fontsize=8.5)
+    ax.set_title(f"{nombre} — {dominio} — Curvas ROC: 10 folds + pooled")
+    ax.legend(loc="lower right", fontsize=8)
     fig.tight_layout()
     fig.savefig(f"{carpeta}/roc_curve_folds.png", dpi=150)
+    plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(5, 4.6))
+    dibujar_cm(ax, d["pooled"], f"{nombre} — {dominio} — pooled\nF1={metricas(d['pooled'])['f1']:.2f}")
+    ax.set_ylabel("Real")
+    fig.tight_layout()
+    fig.savefig(f"{carpeta}/confusion_matrix_pooled.png", dpi=150)
+    plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(5, 4.6))
+    ax.plot(d["roc"].fpr, d["roc"].tpr, color="black", lw=2, label=f"AUC={d['auc']:.4f}")
+    ax.plot([0, 1], [0, 1], "--", color="gray", lw=1)
+    ax.set_xlabel("Tasa de falsos positivos")
+    ax.set_ylabel("Tasa de verdaderos positivos")
+    ax.set_title(f"{nombre} — {dominio} — ROC pooled", fontsize=10)
+    ax.legend(loc="lower right")
+    fig.tight_layout()
+    fig.savefig(f"{carpeta}/roc_curve_pooled.png", dpi=150)
     plt.close(fig)
     return f"{carpeta}/confusion_matrix_folds.png", f"{carpeta}/roc_curve_folds.png"
 
@@ -128,49 +158,39 @@ def graficas_folds(datos, dom, clave, nombre, dominio):
 ETAPAS = [  # (titulo, linea 1, linea 2) -- misma figura de flujo que la documentacion de Mendeley
     ("Dominios objetivo y preparación de datos", "Trucha: 1,150 imágenes (481 fresco / 669 no_fresco)",
      "Rohu: 1,261 imágenes (422 fresco / 839 no_fresco)"),
-    ("Validación cruzada 5-fold en cada dominio", "Trucha: StratifiedKFold · Rohu: StratifiedGroupKFold",
-     "por corrida: 4 folds entrenan · 1 fold evalúa (semilla 42)"),
-    ("Configuración de los 2 modelos (congelado)", "ViT-Base/16 + DenseNet-121 desde el checkpoint de Mendeley",
+    ("Validación cruzada 10-fold en cada dominio", "Trucha: StratifiedKFold · Rohu: StratifiedGroupKFold",
+     "por corrida: 9 folds entrenan · 1 fold evalúa (semilla 42)"),
+    ("Configuración de los 2 modelos (congelado)", "ViT-Base/16 + DenseNet-121 desde los checkpoints de Mendeley",
      "backbone congelado · solo se entrena la cabeza"),
     ("Entrenamiento de la cabeza y mejor epoch", "Máx. 30 epochs · early stopping = 8",
      "criterio: mejor val_F1 macro por fold"),
     ("Evaluación por fold", "Mejor epoch → fold de evaluación",
      "matriz de confusión + probabilidades + métricas"),
-    ("Consolidación OOF / pooled", "Concatenación de los 5 folds de evaluación",
+    ("Consolidación OOF / pooled", "Concatenación de los 10 folds de evaluación",
      "1,150 (Trucha) y 1,261 (Rohu) predicciones out-of-fold"),
     ("Comparación e indicadores de robustez", "F1 macro · Accuracy · AUC · estabilidad",
      "TRD · Gap · RBE frente a Mendeley (dominio fuente)"),
 ]
 
 
-VERIF = "3_resultados/{dom}/verificacion_10fold"
-PACIENCIA, MAX_EPOCHS = 8, 30
-
-
-def epoch_elegido(epochs_run):
-    """Epoch del mejor val_F1 deducido del early stopping de finetune_eval_fold (corta con paciencia >= 8)."""
-    return str(epochs_run - PACIENCIA) if epochs_run < MAX_EPOCHS else f"{MAX_EPOCHS - PACIENCIA}–{MAX_EPOCHS} (no registrado)"
-
-
-def curvas_epoch(dom, clave, nombre, dominio):
-    """val_F1 por epoch de la corrida de verificacion (10 folds); el punto marca el epoch elegido."""
-    base = f"{VERIF.format(dom=dom)}/{clave}"
-    folds = [pd.read_csv(f"{base}/epochs_fold{k}.csv") for k in range(1, 11)]
+def curvas_epoch(datos, dom, clave, nombre, dominio):
+    """val_F1 por epoch de los 10 folds; el punto marca el epoch elegido."""
     fig, ax = plt.subplots(figsize=(9, 4.6))
-    for k, e in enumerate(folds, start=1):
+    for k, f in enumerate(datos[dom, clave]["folds"], start=1):
+        e = f["ep"]
         mejor = e.loc[e.val_f1.idxmax()]
         linea, = ax.plot(e.epoch, e.val_f1, lw=1.2, label=f"Fold {k}")
         ax.plot(mejor.epoch, mejor.val_f1, "o", color=linea.get_color(), ms=6)
     ax.set_xlabel("Epoch")
     ax.set_ylabel("val_F1 macro (%)")
-    ax.set_title(f"{nombre} — {dominio} — val_F1 por epoch (corrida de verificación, 10 folds)")
+    ax.set_title(f"{nombre} — {dominio} — val_F1 por epoch (10 folds)")
     ax.legend(ncol=5, fontsize=8, loc="lower right")
     ax.grid(alpha=0.3)
     fig.tight_layout()
-    ruta = f"4_graficas/{dom}_sinx2/{clave}/val_f1_por_epoch_10fold.png"
+    ruta = f"4_graficas/{dom}_sinx2/{clave}/val_f1_por_epoch.png"
     fig.savefig(ruta, dpi=150)
     plt.close(fig)
-    return ruta, folds
+    return ruta
 
 
 def figura_flujo(ruta="4_graficas/flujo_metodologico.png"):
@@ -371,8 +391,8 @@ GLOSARIO = [
                                 "clases; es la única parte que se entrena aquí."),
     ("Casi-duplicado", "Foto prácticamente idéntica a otra (por ejemplo, tomada en ráfaga). Se detectan con "
                        "detectar_duplicados.py y se mantienen en el mismo fold."),
-    ("Checkpoint", "Archivo (.pt) con los pesos de un modelo. Aquí cada fold parte del checkpoint de Mendeley "
-                   "del mismo índice de fold."),
+    ("Checkpoint", "Archivo (.pt) con los pesos de un modelo. Aquí el fold k parte del checkpoint de Mendeley "
+                   "del fold ((k − 1) mod 5) + 1."),
     ("Clase positiva", "Clase que se toma como referencia para contar TP, FP, FN y TN; en este documento es "
                        "fresco, salvo cuando se indica lo contrario."),
     ("CNN", "Red neuronal convolucional: arquitectura que procesa la imagen con filtros locales (DenseNet-121)."),
@@ -383,7 +403,7 @@ GLOSARIO = [
                   "umbrales posibles."),
     ("Data augmentation", "Transformaciones aleatorias aplicadas solo a las imágenes de entrenamiento (recorte, "
                           "volteo, color, blur, rotación, erasing)."),
-    ("Desviación estándar muestral", "Medida de dispersión de los 5 F1 de fold, calculada con n − 1 en el "
+    ("Desviación estándar muestral", "Medida de dispersión de los 10 F1 de fold, calculada con n − 1 en el "
                                      "denominador. Un valor bajo indica un modelo estable."),
     ("Dominio fuente", "Conjunto con el que se entrenaron los modelos base: Mendeley (8,000 imágenes)."),
     ("Dominio objetivo", "Conjunto nuevo al que se transfiere el modelo: Trucha o Rohu."),
@@ -396,7 +416,7 @@ GLOSARIO = [
                  "documento."),
     ("F1-Score", "Media armónica de Precisión y Recall de una clase: 2 × P × R / (P + R)."),
     ("FN (falso negativo)", "Imagen de la clase evaluada que el modelo asignó a la otra clase."),
-    ("Fold", "Cada una de las 5 particiones de un dominio. En la corrida k, el fold k se evalúa y los otros 4 "
+    ("Fold", "Cada una de las 10 particiones de un dominio. En la corrida k, el fold k se evalúa y los otros 9 "
              "entrenan la cabeza."),
     ("FP (falso positivo)", "Imagen de la otra clase que el modelo asignó a la clase evaluada."),
     ("Fuga de información", "Situación en la que datos de evaluación influyen en el entrenamiento, lo que infla "
@@ -411,10 +431,10 @@ GLOSARIO = [
                                  "clasificación en el dominio objetivo."),
     ("Matriz de confusión", "Tabla 2 × 2 que cruza la clase real (filas) con la clase predicha (columnas); de "
                             "ella salen TP, FP, FN y TN."),
-    ("Matriz pooled", "Suma celda a celda de las 5 matrices de fold de un modelo; suma 1,150 imágenes en Trucha "
+    ("Matriz pooled", "Suma celda a celda de las 10 matrices de fold de un modelo; suma 1,150 imágenes en Trucha "
                       "y 1,261 en Rohu."),
     ("MPS", "Metal Performance Shaders: aceleración por GPU de PyTorch en equipos Apple."),
-    ("OOF (out-of-fold)", "Predicción que recibe una imagen de la cabeza entrenada con los otros 4 folds, que "
+    ("OOF (out-of-fold)", "Predicción que recibe una imagen de la cabeza entrenada con los otros 9 folds, que "
                           "no la vio en entrenamiento."),
     ("Paciencia", "Número de epochs seguidos sin mejora de val_F1 que se toleran antes del early stopping."),
     ("Parámetros", "Cantidad de pesos del modelo, en millones (M); los entrenables aquí son solo los de la "
@@ -462,7 +482,7 @@ def generar(datos, plantilla):
         color=RGBColor(0x44, 0x44, 0x44))
     doc.add_paragraph()
     parrafo(doc, "Congelado (linear probe) desde el checkpoint de Mendeley — ViT-Base/16 y DenseNet-121, "
-                 "5-fold, sin augmentación x2", size=11, centrado=True)
+                 "10-fold, sin augmentación x2", size=11, centrado=True)
     parrafo(doc, "Cálculos por fold y pooled — con fórmulas, gráficas y datos trazables a los archivos fuente",
             italic=True, size=11, centrado=True)
     doc.add_paragraph()
@@ -490,16 +510,16 @@ def generar(datos, plantilla):
     parrafo(doc, "Las clases no están balanceadas en ninguno de los dos dominios (Mendeley sí lo está, 50/50); "
                  "por eso la métrica central es el F1 macro, que pesa igual a fresco y no_fresco (ver 2.3).")
 
-    titulo(doc, "1.2 Etapa 2 — Validación cruzada 5-fold en cada dominio", 2)
-    parrafo(doc, "Cada dominio se divide en 5 folds con semilla 42. En cada corrida, 4 folds se usan para "
+    titulo(doc, "1.2 Etapa 2 — Validación cruzada 10-fold en cada dominio", 2)
+    parrafo(doc, "Cada dominio se divide en 10 folds con semilla 42. En cada corrida, 9 folds se usan para "
                  "entrenar la cabeza y el fold restante para evaluar; cada imagen se evalúa una sola vez.")
-    formula(doc, "Fold i:  Evaluación_i (≈20%)  |  Entrenamiento_i (≈80%)   [i = 1..5]")
-    parrafo(doc, "StratifiedKFold(n_splits=5, shuffle=True, random_state=42): 920 imágenes de entrenamiento y "
-                 "230 de evaluación por fold, con la misma proporción de clases en cada fold.", prefijo="Trucha. ")
-    parrafo(doc, "StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=42), agrupando las fotos casi "
+    formula(doc, "Fold i:  Evaluación_i (≈10%)  |  Entrenamiento_i (≈90%)   [i = 1..10]")
+    parrafo(doc, "StratifiedKFold(n_splits=10, shuffle=True, random_state=42): 1,035 imágenes de entrenamiento y "
+                 "115 de evaluación por fold, con la misma proporción de clases en cada fold.", prefijo="Trucha. ")
+    parrafo(doc, "StratifiedGroupKFold(n_splits=10, shuffle=True, random_state=42), agrupando las fotos casi "
                  "idénticas (tomadas en ráfaga, detectadas con detectar_duplicados.py) para que una foto y su casi "
                  "gemela nunca queden una en entrenamiento y otra en evaluación. Por eso el tamaño del fold de "
-                 "evaluación varía entre 228 y 284 imágenes. Se detectaron 108 grupos de 2 o más fotos casi "
+                 "evaluación varía entre 117 y 133 imágenes. Se detectaron 108 grupos de 2 o más fotos casi "
                  "idénticas (el más grande con 15); cada una de las demás imágenes es su propio grupo.",
             prefijo="Rohu. ")
     parrafo(doc, "a diferencia de Mendeley (68/12/20), aquí no hay un fold de validación separado del de "
@@ -509,9 +529,10 @@ def generar(datos, plantilla):
                  "producción.", prefijo="Limitación: ")
 
     titulo(doc, "1.3 Etapa 3 — Configuración de los 2 modelos (congelado / linear probe)", 2)
-    parrafo(doc, "Cada fold parte del checkpoint de Mendeley (8,000 imágenes, 10 modelos evaluados en "
-                 "Documentacion_Tecnica_10_Modelos.docx) del mismo índice de fold (el fold 3 de Trucha parte "
-                 "del checkpoint del fold 3, etc.). El backbone se congela (pesos fijos, sin gradiente, en modo "
+    parrafo(doc, "Cada fold parte de un checkpoint de Mendeley (8,000 imágenes, 10 modelos evaluados en "
+                 "Documentacion_Tecnica_10_Modelos.docx). Mendeley se entrenó con 5 folds, así que hay 5 "
+                 "checkpoints por modelo: el fold k parte del checkpoint ((k − 1) mod 5) + 1 (los folds 1 y 6 "
+                 "del checkpoint 1, los folds 2 y 7 del 2, etc.). El backbone se congela (pesos fijos, sin gradiente, en modo "
                  "eval() para que BatchNorm no actualice sus estadísticas) y solo se entrena la cabeza de "
                  "clasificación sobre el dominio objetivo. Es entrenamiento real (hay backpropagation y "
                  "actualización de pesos en la cabeza), no una evaluación zero-shot.")
@@ -520,7 +541,7 @@ def generar(datos, plantilla):
           [(n, fam, par, f"{cab:,}", f"{img}×{img}", b) for _, n, fam, par, img, b, cab in MODELOS])
     parrafo(doc, "optimizador AdamW sobre la cabeza (learning rate 1e-4, weight decay 1e-4), "
                  "CosineAnnealingLR, CrossEntropyLoss, hasta 30 epochs con early stopping (paciencia 8 epochs sin "
-                 "mejora de val_F1).", prefijo="Hiperparámetros (finetune_target_x2.py, finetune_eval_fold): ")
+                 "mejora de val_F1).", prefijo="Hiperparámetros (linear_probe_con_test.py, entrenar_fold): ")
     parrafo(doc, "cada imagen de entrenamiento aparece una sola vez por epoch, con la augmentación "
                  "estocástica estándar de get_transforms_v3 (recorte, flip, color, blur, rotación, erasing). La "
                  "evaluación nunca se aumenta.", prefijo="Sin augmentación x2: ")
@@ -542,7 +563,7 @@ def generar(datos, plantilla):
     ])
 
     titulo(doc, "1.4 Etapa 4 — Entrenamiento de la cabeza y selección del mejor epoch", 2)
-    parrafo(doc, "Por cada combinación (modelo, dominio, fold) — 20 en total — se entrena la cabeza hasta 30 "
+    parrafo(doc, "Por cada combinación (modelo, dominio, fold) — 40 en total — se entrena la cabeza hasta 30 "
                  "epochs. En cada epoch se mide val_F1 sobre el fold de evaluación; se guardan las predicciones "
                  "del epoch con mejor val_F1, que son las que se reportan (no las del último epoch).")
     negrita(doc, "Corridas experimentales por modelo y dominio")
@@ -550,14 +571,13 @@ def generar(datos, plantilla):
     for clave, nombre, *_ in MODELOS:
         for dom, dominio in DOMINIOS:
             d = datos[dom, clave]
-            filas.append((nombre, dominio, "5", sum(f["epochs"] for f in d["folds"]), "5", f"{d['pooled'].sum():,}"))
+            filas.append((nombre, dominio, "10", sum(f["epochs"] for f in d["folds"]), "10", f"{d['pooled'].sum():,}"))
     tabla(doc, ["Modelo", "Dominio", "Corridas (folds)", "Epochs ejecutados", "Evaluaciones", "Predicciones OOF"],
           filas)
-    parrafo(doc, "Epochs ejecutados = suma de los 5 folds (máximo 30 por fold; menos de 150 indica early "
-                 "stopping). Corresponden a la corrida que guardó matrices de confusión y curvas ROC "
-                 "(linear_probe_confmat_roc.py). Esa corrida no registró val_F1 por epoch; el detalle epoch por "
-                 "epoch de la sección 3.x.1 viene de una corrida de verificación con 10 folds (mismo código, "
-                 "datos y semilla), que no reemplaza las cifras presentadas.", prefijo="Nota. ")
+    parrafo(doc, "Epochs ejecutados = suma de los 10 folds (máximo 30 por fold; menos de 300 indica early "
+                 "stopping). Una sola corrida (linear_probe_con_test.py --protocolo original --folds 10) guarda, "
+                 "por fold, val_F1 por epoch, las predicciones, la matriz de confusión y la curva ROC; todas las "
+                 "cifras de este documento salen de ella. Log: " + LOG + ".", prefijo="Nota. ")
 
     titulo(doc, "1.5 Etapa 5 — Evaluación por fold", 2)
     parrafo(doc, "Con las predicciones del mejor epoch de cada fold se arma la matriz de confusión del fold y se "
@@ -567,14 +587,14 @@ def generar(datos, plantilla):
                  "modelo y dominio («Resultados por fold»); curvas ROC por fold: «Curvas ROC por fold».")
 
     titulo(doc, "1.6 Etapa 6 — Consolidación OOF / pooled", 2)
-    parrafo(doc, "Las predicciones de evaluación de los 5 folds, llamadas predicciones out-of-fold (OOF, ver "
+    parrafo(doc, "Las predicciones de evaluación de los 10 folds, llamadas predicciones out-of-fold (OOF, ver "
                  "glosario 2.5), se concatenan: cada imagen aparece una sola vez, en el fold donde fue evaluada. "
                  "Sobre ese conjunto se calcula UNA sola vez la matriz de confusión y las métricas:")
-    formula(doc, "Matriz_pooled = Matriz_fold1 + Matriz_fold2 + Matriz_fold3 + Matriz_fold4 + Matriz_fold5")
+    formula(doc, "Matriz_pooled = Matriz_fold1 + Matriz_fold2 + … + Matriz_fold10")
     negrita(doc, "Cálculo de la matriz pooled y de los números generales de cada modelo")
     parrafo(doc, "las predicciones del mejor epoch de cada fold forman una matriz 2×2 (fresco / no_fresco).",
             prefijo="Paso 1 — Matriz de cada fold: ")
-    parrafo(doc, "se suman celda a celda las 5 matrices de fold (confusion_matrix_pooled.csv).",
+    parrafo(doc, "se suman celda a celda las 10 matrices de fold (confusion_matrix_pooled.csv).",
             prefijo="Paso 2 — Matriz pooled: ")
     parrafo(doc, "para no_fresco se invierten los roles (su TP es el TN de fresco).",
             prefijo="Paso 3 — Métricas por clase desde la matriz pooled: ")
@@ -585,7 +605,7 @@ def generar(datos, plantilla):
     formula(doc, "Accuracy = (TP+TN) / N × 100",
             "Precisión macro = (Precisión_fresco + Precisión_no_fresco) / 2;  igual para Recall y F1")
     parrafo(doc, "el AUC pooled se calcula con las probabilidades OOF concatenadas (roc_curve_pooled.csv), no "
-                 "con la matriz. La desviación estándar del F1 es la desviación muestral (n − 1) de los 5 F1 de "
+                 "con la matriz. La desviación estándar del F1 es la desviación muestral (n − 1) de los 10 F1 de "
                  "fold.", prefijo="Paso 5 — Números que no salen de la matriz: ")
     clave, nombre = MODELOS[0][:2]
     m = metricas(datos["trucha", clave]["pooled"])
@@ -610,7 +630,7 @@ def generar(datos, plantilla):
     tabla(doc, ["Modelo", "Dominio", "TP", "FN", "FP", "TN", "Accuracy", "Precisión macro", "F1 macro"], filas,
           resaltar=(0, 2))
     parrafo(doc, "TP/FN = imágenes fresco predichas fresco/no_fresco; FP/TN = imágenes no_fresco predichas "
-                 "fresco/no_fresco. El detalle con la suma de las 5 matrices de fold está en cada sección 3.x.",
+                 "fresco/no_fresco. El detalle con la suma de las 10 matrices de fold está en cada sección 3.x.",
             prefijo="Nota. ")
 
     titulo(doc, "1.7 Etapa 7 — Comparación e indicadores de robustez", 2)
@@ -619,32 +639,27 @@ def generar(datos, plantilla):
         for clave, nombre, *_ in MODELOS:
             d = datos[dom, clave]
             m = metricas(d["pooled"])
-            sd = statistics.stdev(metricas(f["cm"])["f1"] for f in d["folds"])
+            sd = statistics.stdev(f["f1"] for f in d["folds"])
             filas.append((nombre, dominio, f2(m["acc"]), f2(m["prec"]), f2(m["f1"]), f2(sd), f"{d['auc']:.4f}",
                           f2(d["f1_oficial"])))
-    tabla(doc, ["Modelo", "Dominio", "Accuracy", "Precisión", "F1 macro (pooled)", "Desv.std F1 (5 folds)",
-                "AUC (pooled)", "F1 oficial (media 5 folds)"], filas, resaltar=(0, 2))
-    parrafo(doc, "los valores pooled provienen de la corrida de matrices de confusión y ROC "
-                 "(linear_probe_confmat_roc.py, misma configuración, reentrenada), por eso difieren levemente "
-                 "del F1 oficial (finetune_target_x2.py y experimento_rohu.py, 3_resultados/"
-                 "{trucha,rohu}/congelado_sinx2_resumen.csv). Los indicadores de robustez usan el F1 oficial.",
+    tabla(doc, ["Modelo", "Dominio", "Accuracy", "Precisión", "F1 macro (pooled)", "Desv.std F1 (10 folds)",
+                "AUC (pooled)", "F1 media 10 folds"], filas, resaltar=(0, 2))
+    parrafo(doc, "el F1 pooled se calcula una vez sobre las predicciones OOF concatenadas; la media de los 10 "
+                 "folds promedia el F1 de cada fold. Los indicadores de robustez usan la media de los 10 folds.",
             prefijo="Nota: ", italic=True, size=9.5)
-    negrita(doc, "F1 oficial por fold (corrida de 3_resultados/, base de los indicadores de robustez)")
-    filas = []
+    negrita(doc, "F1 por fold (base de los indicadores de robustez)")
+    filas, resaltar = [], []
     for dom, dominio in DOMINIOS:
-        df = pd.read_csv(f"3_resultados/{dom}/congelado_sinx2_por_fold.csv")
         for clave, nombre, *_ in MODELOS:
-            for r in df[df.model == clave].itertuples():
-                n_eval = r.n_val
-                filas.append((nombre, dominio, f"Fold {r.fold}", r.n_train, n_eval, f2(r.f1), f2(r.accuracy),
-                              r.epochs_run, f"{r.tiempo_s:.1f}"))
+            for k, f in enumerate(datos[dom, clave]["folds"], start=1):
+                filas.append((nombre, dominio, f"Fold {k}", f["n_train"], metricas(f["cm"])["n"], f2(f["f1"]),
+                              f2(f["acc"]), f["epochs"], f"{f['tiempo']:.1f}"))
+            resaltar.append(len(filas))
             filas.append((nombre, dominio, "Media", "", "", f2(datos[dom, clave]["f1_oficial"]), "", "", ""))
     tabla(doc, ["Modelo", "Dominio", "Fold", "N entrenamiento", "N evaluación", "F1", "Accuracy", "Epochs",
-                "Tiempo (s)"], filas, resaltar=(5, 11, 17, 23))
-    parrafo(doc, "corrida de finetune_target_x2.py (Trucha) y experimento_rohu.py (Rohu): mismo "
-                 "método y semilla que la corrida de matrices de confusión, pero ejecutada aparte; por eso el F1 "
-                 "de cada fold difiere levemente del de las secciones 3.x. Logs: " + LOG["trucha"] + " y "
-                 + LOG["rohu"] + ".", prefijo="Nota: ", italic=True, size=9.5)
+                "Tiempo (s)"], filas, resaltar=resaltar)
+    parrafo(doc, f"{RES.replace('{dom}', '{trucha,rohu}')}/resumen.csv. Log: {LOG}.", prefijo="Fuente: ",
+            italic=True, size=9.5)
     negrita(doc, "Indicadores de robustez (fórmulas en 2.6)")
     filas = []
     for dom, dominio in DOMINIOS:
@@ -658,6 +673,11 @@ def generar(datos, plantilla):
     negrita(doc, "Lectura")
     parrafo(doc, f"ViT-Base/16 rinde por encima de DenseNet-121 en los dos dominios, consistente con su "
                  f"desempeño en Mendeley ({F1_FUENTE['vit_base_patch16_224']} vs. {F1_FUENTE['densenet121']}).")
+    for dom, dominio in DOMINIOS:
+        v = [f["f1"] for f in datos[dom, "vit_base_patch16_224"]["folds"]]
+        c = [f["f1"] for f in datos[dom, "densenet121"]["folds"]]
+        parrafo(doc, f"{dominio}: ViT-Base/16 supera a DenseNet-121 en {sum(a > b for a, b in zip(v, c))} de los "
+                     f"10 folds (Wilcoxon pareado, p = {wilcoxon(v, c).pvalue:.4f}).")
     parrafo(doc, "Rohu rinde por encima de Trucha en los 2 modelos.")
     parrafo(doc, "ViT-Base/16 retiene más desempeño que DenseNet-121 en ambos dominios (TRD más alto, Gap más "
                  "chico) y su RBE es positivo: transfiere mejor que el baseline CNN.")
@@ -712,14 +732,14 @@ def generar(datos, plantilla):
                  "moderado en el corte de 50% pero AUC alto si sus probabilidades igual ordenan bien los casos.")
     titulo(doc, "2.5 Predicciones out-of-fold (OOF) y resultado pooled", 2)
     parrafo(doc, "OOF (out-of-fold, \"fuera del fold\") es la predicción que recibe una imagen cuando forma parte "
-                 "del fold de evaluación. Esa predicción la hace la cabeza entrenada con los otros 4 folds, que "
+                 "del fold de evaluación. Esa predicción la hace la cabeza entrenada con los otros 9 folds, que "
                  "nunca vio esa imagen en entrenamiento.")
-    parrafo(doc, "Como cada imagen está en la evaluación de exactamente un fold, al terminar los 5 folds se tiene "
+    parrafo(doc, "Como cada imagen está en la evaluación de exactamente un fold, al terminar los 10 folds se tiene "
                  "exactamente una predicción OOF por imagen: 1,150 en Trucha y 1,261 en Rohu.")
     parrafo(doc, "Resultado pooled: son las métricas calculadas UNA sola vez sobre todas las predicciones OOF "
-                 "concatenadas. No es el promedio de las métricas de los 5 folds: el F1 y el AUC no son lineales y "
+                 "concatenadas. No es el promedio de las métricas de los 10 folds: el F1 y el AUC no son lineales y "
                  "se recalculan sobre el total. La matriz de confusión pooled sí equivale a la suma celda a celda "
-                 "de las 5 matrices de fold.")
+                 "de las 10 matrices de fold.")
     parrafo(doc, "Media ± desviación estándar por fold: es el complemento del resultado pooled. Resume cuánto varía "
                  "el F1 cuando cambia la partición; una desviación baja indica un modelo estable.")
     titulo(doc, "2.6 Indicadores de robustez ante cambio de dominio (TRD, Gap, RBE)", 2)
@@ -745,44 +765,26 @@ def generar(datos, plantilla):
         parrafo(doc, f"F1 macro Mendeley (fuente) = {F1_FUENTE[clave]}   {resumen}   Parámetros = {par}",
                 prefijo="")
         titulo(doc, f"3.{i}.1 Entrenamiento — val_F1 por epoch", 3)
-        archivo(doc, f"3_resultados/{{trucha,rohu}}/confmat_roc/resumen_confmat_roc.csv (corrida presentada) y "
-                     f"3_resultados/{{trucha,rohu}}/verificacion_10fold/{clave}/epochs_fold{{1..10}}.csv "
-                     f"(corrida de verificación)",
-                "finetune_target_x2.py — finetune_eval_fold(): mide val_F1 al final de cada epoch y corta cuando "
-                "pasan 8 epochs seguidos sin mejora.")
-        parrafo(doc, "La corrida presentada (5 folds) solo guardó, por fold, el total de epochs ejecutados y "
-                     "las métricas del mejor epoch. Con eso se arma el resumen por fold. El detalle epoch por "
-                     "epoch viene de la corrida de verificación (10 folds): mismo código, datos, semilla e "
-                     "hiperparámetros, pero con 10 particiones, por lo que sus folds no son los mismos que los "
-                     "de la corrida presentada y sus cifras no la reemplazan.", prefijo="Nota. ")
+        archivo(doc, f"{RES.replace('{dom}', '{trucha,rohu}')}/{clave}/epochs_fold{{1..10}}.csv y resumen.csv",
+                "linear_probe_con_test.py — entrenar_fold(): mide val_F1 al final de cada epoch, guarda la cabeza "
+                "del mejor epoch y corta cuando pasan 8 epochs seguidos sin mejora.")
         for dom, dominio in DOMINIOS:
             d = datos[dom, clave]
-            negrita(doc, f"{dominio} — corrida presentada (5 folds): resumen por fold")
-            tabla(doc, ["Fold", "Epoch elegido (mejor val_F1)", "val_F1 en ese epoch", "Total epochs ejecutados"],
-                  [(f"Fold {k}", epoch_elegido(f["epochs"]), f2(metricas(f["cm"])["f1"]), f["epochs"])
-                   for k, f in enumerate(d["folds"], start=1)])
-            parrafo(doc, "el entrenamiento se detiene cuando pasan 8 epochs seguidos sin mejora, así que si "
-                         "el fold paró antes de 30 epochs el mejor fue el epoch total − 8. Si llegó a 30, el mejor "
-                         "está entre el 22 y el 30 y no quedó registrado. val_F1 en ese epoch es el F1 del fold, "
-                         "porque el mismo fold elige el epoch y se evalúa (ver 1.2).", prefijo="Epoch elegido: ",
-                    size=9.5)
-            png, folds = curvas_epoch(dom, clave, nombre, dominio)
-            r = pd.read_csv(f"{VERIF.format(dom=dom)}/resumen.csv")
-            r = r[(r.model == clave) & (r.fold != "pooled")]
-            negrita(doc, f"{dominio} — corrida de verificación (10 folds): val_F1 por epoch")
+            png = curvas_epoch(datos, dom, clave, nombre, dominio)
+            negrita(doc, f"{dominio} — val_F1 por epoch (10 folds)")
             imagenes(doc, [png], 15)
-            leyenda(doc, f"{nombre} — {dominio} — val_F1 por epoch en la corrida de verificación. El punto marca "
-                         f"el epoch elegido (mejor val_F1 de ese fold).")
-            filas = []
-            for k, (e, (_, fila)) in enumerate(zip(folds, r.iterrows()), start=1):
-                mejor = e.loc[e.val_f1.idxmax()]
-                assert int(mejor.epoch) == int(float(fila.epoch_elegido)) and len(e) == int(float(fila.epochs_run))
-                filas.append((f"Fold {k}", int(mejor.epoch), f2(mejor.val_f1), len(e)))
-            tabla(doc, ["Fold", "Epoch elegido", "val_F1 en ese epoch", "Total epochs ejecutados"], filas)
-            parrafo(doc, f"Media del F1 de los 10 folds = {f2(r.test_f1.mean())} ± {f2(r.test_f1.std())}. "
+            leyenda(doc, f"{nombre} — {dominio} — val_F1 por epoch. El punto marca el epoch elegido (mejor val_F1 "
+                         f"de ese fold).")
+            tabla(doc, ["Fold", "Epoch elegido", "val_F1 en ese epoch", "Total epochs ejecutados"],
+                  [(f"Fold {k}", f["elegido"], f2(f["ep"].val_f1.max()), f["epochs"])
+                   for k, f in enumerate(d["folds"], start=1)])
+            sd = statistics.stdev(f["f1"] for f in d["folds"])
+            parrafo(doc, f"Media del F1 de los 10 folds = {f2(d['f1_oficial'])} ± {f2(sd)}. val_F1 en el epoch "
+                         f"elegido es el F1 del fold, porque el mismo fold elige el epoch y se evalúa (ver 1.2). "
                          f"Cada fold k parte del checkpoint de Mendeley del fold ((k − 1) mod 5) + 1.", size=9.5)
             negrita(doc, "Detalle completo — todos los epochs de cada fold (fila resaltada = epoch elegido):")
-            for k, e in enumerate(folds, start=1):
+            for k, f in enumerate(d["folds"], start=1):
+                e = f["ep"]
                 parrafo(doc, f"Fold {k}", italic=True)
                 tabla(doc, ["Epoch", "val_F1", "Mejor hasta ahora", "Paciencia"],
                       [(int(x.epoch), f2(x.val_f1), f2(x.mejor_hasta_ahora), int(x.paciencia))
@@ -791,15 +793,15 @@ def generar(datos, plantilla):
         sub = 1
         for dom, dominio in DOMINIOS:
             d = datos[dom, clave]
-            ruta = f"3_resultados/{dom}/confmat_roc/{clave}"
+            ruta = f"{RES.format(dom=dom)}/{clave}"
             cm_png, roc_png = graficas_folds(datos, dom, clave, nombre, dominio)
 
             sub += 1
             titulo(doc, f"3.{i}.{sub} {dominio} — resultados por fold", 3)
-            archivo(doc, f"{ruta}/confusion_matrix_fold{{1..5}}.csv  y  "
-                         f"3_resultados/{dom}/confmat_roc/resumen_confmat_roc.csv (filas de este modelo)",
-                    "linear_probe_confmat_roc.py — process_model(): por cada fold llama a finetune_eval_fold() "
-                    "(finetune_target_x2.py) y guarda la matriz y la curva ROC del mejor epoch.")
+            archivo(doc, f"{ruta}/confusion_matrix_fold{{1..10}}.csv, predicciones_fold{{1..10}}.csv  y  "
+                         f"{RES.format(dom=dom)}/resumen.csv (filas de este modelo)",
+                    "linear_probe_con_test.py — main(): por cada fold llama a entrenar_fold() y guarda la matriz "
+                    "y la curva ROC de las predicciones del mejor epoch (guardar_matriz_roc).")
             parrafo(doc, "Las predicciones del mejor epoch de cada fold forman la matriz de confusión del fold; "
                          "se aplican las mismas fórmulas del glosario (sección 2):")
             formula(doc, "Precisión = TP / (TP+FP) × 100     Recall = TP / (TP+FN) × 100",
@@ -809,7 +811,7 @@ def generar(datos, plantilla):
             filas = []
             for k, f in enumerate(d["folds"], start=1):
                 m = metricas(f["cm"])
-                filas.append((f"Fold {k}", f"Fold {k}", ",".join(str(j) for j in range(1, 6) if j != k), m["n"],
+                filas.append((f"Fold {k}", f"Fold {k}", ",".join(str(j) for j in range(1, K + 1) if j != k), m["n"],
                               f2(m["acc"]), f2(m["prec"]), f2(m["rec"]), f2(m["f1"]), f"{f['auc']:.4f}",
                               f["epochs"]))
             tabla(doc, ["Corrida", "Fold de EVALUACIÓN", "Folds de ENTRENAMIENTO", "N", "Accuracy", "Precisión",
@@ -824,13 +826,13 @@ def generar(datos, plantilla):
                     f"F1 macro Fold 1 = ({f2(m['f1_f'])}+{f2(m['f1_n'])})/2 = {f2(m['f1'])}   "
                     f"(valor en la tabla: {f2(m['f1'])})")
             imagenes(doc, [cm_png], 15)
-            leyenda(doc, f"{nombre} — {dominio} — matriz de confusión de cada uno de los 5 folds (mejor epoch "
+            leyenda(doc, f"{nombre} — {dominio} — matriz de confusión de cada uno de los 10 folds (mejor epoch "
                          f"evaluado sobre el fold de evaluación).")
 
             sub += 1
             titulo(doc, f"3.{i}.{sub} {dominio} — curvas ROC por fold", 3)
-            archivo(doc, f"{ruta}/roc_curve_fold{{1..5}}.csv  (columnas fpr, tpr, threshold)",
-                    "linear_probe_confmat_roc.py — roc_curve() y roc_auc_score() sobre la probabilidad softmax "
+            archivo(doc, f"{ruta}/roc_curve_fold{{1..10}}.csv  (columnas fpr, tpr, threshold)",
+                    "linear_probe_con_test.py — guardar_matriz_roc(): roc_curve() y roc_auc_score() sobre la probabilidad softmax "
                     "del mejor epoch.")
             imagenes(doc, [roc_png], 10)
             leyenda(doc, f"{nombre} — {dominio} — curva ROC de cada fold individual (color) y curva pooled "
@@ -839,9 +841,9 @@ def generar(datos, plantilla):
             sub += 1
             titulo(doc, f"3.{i}.{sub} {dominio} — resultado pooled, cómo se calculó cada número", 3)
             archivo(doc, f"{ruta}/confusion_matrix_pooled.csv, roc_curve_pooled.csv",
-                    "linear_probe_confmat_roc.py — final de process_model(): concatena las predicciones de los "
-                    "5 folds y aplica compute_metrics() (de metrics.py) una sola vez.")
-            negrita(doc, "Matriz de confusión pooled = suma de las 5 matrices de fold:")
+                    "linear_probe_con_test.py — final de main(): concatena las predicciones de los 10 folds y "
+                    "aplica guardar_matriz_roc() (compute_metrics() de metrics.py) una sola vez.")
+            negrita(doc, "Matriz de confusión pooled = suma de las 10 matrices de fold:")
             cms = [f["cm"] for f in d["folds"]]
             mp = metricas(d["pooled"])
             for etiqueta, (a, b), clave_m in (("TP (fresco→fresco)", (0, 0), "tp"),
@@ -862,7 +864,7 @@ def generar(datos, plantilla):
                          f"por sí solo no indica: {fn} imágenes fresco se clasificaron como no_fresco y {fp} "
                          f"imágenes no_fresco como fresco. Se usa la matriz pooled porque reúne las "
                          f"{mp['n']:,} predicciones OOF, cada imagen una sola vez; por eso el F1 macro reportado "
-                         f"se calcula desde ella y no promediando el F1 de los 5 folds. El AUC es la única métrica "
+                         f"se calcula desde ella y no promediando el F1 de los 10 folds. El AUC es la única métrica "
                          f"que no sale de la matriz, porque usa las probabilidades y no un único umbral (ver 2.4).")
             tabla(doc, ["Clase", "TP", "FP", "FN", "TN", "Precisión", "Recall", "F1", "Especificidad"], [
                 ("fresco", tp, fp, fn, tn, f2(mp["p_f"]), f2(mp["r_f"]), f2(mp["f1_f"]), f2(mp["r_n"])),
@@ -880,14 +882,12 @@ def generar(datos, plantilla):
     parrafo(doc, "Todos los números de este documento provienen de archivos reales, sin datos simulados.")
     tabla(doc, ["Qué", "Dónde"], [
         ("Código de entrenamiento y evaluación",
-         "1_codigo/finetune_target_x2.py, experimento_rohu.py, linear_probe_confmat_roc.py"),
+         "1_codigo/linear_probe_con_test.py (--protocolo original --folds 10), experimento_dataset_mixto.py"),
         ("Generación de este documento y de las gráficas por fold", "1_codigo/generar_documentacion_tecnica.py"),
-        ("Logs de entrenamiento", f"{LOG['trucha']}, {LOG['rohu']}, 2_logs/rohu_confmat_roc.log"),
-        ("F1 oficial por fold y resumen", "3_resultados/{trucha,rohu}/congelado_sinx2_{por_fold,resumen}.csv"),
-        ("Matrices de confusión y curvas ROC (por fold y pooled)",
-         "3_resultados/{trucha,rohu}/confmat_roc/{modelo}/*.csv y resumen_confmat_roc.csv"),
-        ("val_F1 por epoch (corrida de verificación, 10 folds)",
-         "3_resultados/{trucha,rohu}/verificacion_10fold/{modelo}/epochs_fold{1..10}.csv y resumen.csv"),
+        ("Log de entrenamiento", LOG),
+        ("F1, epochs y tiempo por fold; resultado pooled", "3_resultados/{trucha,rohu}/linear_probe_10fold/resumen.csv"),
+        ("val_F1 por epoch, predicciones, matrices de confusión y curvas ROC (por fold y pooled)",
+         "3_resultados/{trucha,rohu}/linear_probe_10fold/{modelo}/*.csv"),
         ("Gráficas", "4_graficas/{trucha,rohu}_sinx2/{modelo}/"),
         ("F1 macro de Mendeley (dominio fuente)",
          "Mendeley_ViT_DenseNet/3_resultados_test_por_modelo/metricas_pooled_por_modelo.csv"),

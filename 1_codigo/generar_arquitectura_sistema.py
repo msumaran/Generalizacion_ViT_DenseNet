@@ -72,7 +72,7 @@ for x, titulo in COLS:
 x = COLS[0][0]
 caja(x + 0.35, 6.55, 2.5, 1.35, "Definición del\ntratamiento del dato\n(etiquetas fresco /\nno_fresco, revisión\nmanual de recortes)",
      AZUL, AZUL_BORDE, size=8.8)
-caja(x + 0.35, 3.75, 2.5, 1.6, "Módulo de partición\nTrucha: StratifiedKFold\nRohu: StratifiedGroupKFold\n5 folds (seed 42)",
+caja(x + 0.35, 3.75, 2.5, 1.6, "Módulo de partición\nTrucha: StratifiedKFold\nRohu: StratifiedGroupKFold\n10 folds (seed 42)",
      AZUL, AZUL_BORDE, size=8.8)
 flecha([(x + 1.6, 6.5), (x + 1.6, 5.4)], color=GRIS_CAJA, doble=True)
 
@@ -82,7 +82,7 @@ CABECERAS = [
     ("Pipeline de\nevaluación", GRIS_CAJA, GRIS_CAJA, "white"),
     ("Pipeline de\nreportes", NARANJA, NARANJA_BORDE, "black"),
 ]
-SCRIPTS = ["finetune_target_x2.py · experimento_rohu.py", "linear_probe_confmat_roc.py",
+SCRIPTS = ["linear_probe_con_test.py", "linear_probe_con_test.py",
            "generar_documentacion_tecnica.py"]
 for (x, _), (txt, fc, ec, col), script in zip(COLS[1:], CABECERAS, SCRIPTS):
     caja(x + 0.55, 7.35, 2.1, 0.7, txt, fc, ec, size=9.5, bold=True, color=col)
@@ -95,7 +95,7 @@ ax.text(x + 1.6, 6.6, "Preparar datos", ha="center", fontsize=9.5)
 circulo_preparar(x + 1.6, 6.0)
 ax.text(x + 2.0, 6.0, "resize +\naugmentation", ha="left", va="center", fontsize=7.4, color="#444444")
 flecha([(x + 1.6, 5.7), (x + 1.6, 5.3)], color=GRIS_CAJA)
-caja(x + 0.55, 4.25, 2.1, 1.05, "Linear probe (congelado)\n2 modelos × 2 dominios\n× 5 folds · AdamW", NARANJA,
+caja(x + 0.55, 4.25, 2.1, 1.05, "Linear probe (congelado)\n2 modelos × 2 dominios\n× 10 folds · AdamW", NARANJA,
      NARANJA_BORDE, size=8.6, bold=True)
 ax.text(x + 1.6, 3.7, "Entrenar la cabeza y\nelegir el mejor epoch\n(val_F1)", ha="center", va="center",
         fontsize=9, fontweight="bold", linespacing=1.2)
