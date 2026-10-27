@@ -531,7 +531,7 @@ def generar(datos, plantilla):
     imagenes(doc, ["4_graficas/arquitectura_sistema.png"], 16)
     negrita(doc, "Especificaciones técnicas del entorno de ejecución:")
     tabla(doc, ["Componente", "Detalle"], [
-        ("Acelerador", "Apple MPS — torch.backends.mps (Dispositivo: mps, según los logs de 2_logs/)"),
+        ("Hardware", "PC con procesador Intel Core i9 y 64 GB de RAM"),
         ("Deep learning", "PyTorch + torchvision (entrenamiento, tensores, transforms)"),
         ("Model zoo", "timm — ViT-Base/16 y DenseNet-121"),
         ("ML utilitario", "scikit-learn — StratifiedKFold, StratifiedGroupKFold, confusion_matrix, roc_curve, "
