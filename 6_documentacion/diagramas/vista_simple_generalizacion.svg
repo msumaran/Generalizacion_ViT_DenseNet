@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2470" height="660" viewBox="0 0 2470 660">
+<rect width="2470" height="660" fill="#ffffff"/>
+<text x="1235.0" y="78" font-family="Arial,Helvetica,sans-serif" font-size="44" font-weight="700" fill="#102f45" text-anchor="middle">Generalización a otros peces en 6 pasos</text>
+<text x="1235.0" y="124" font-family="Arial,Helvetica,sans-serif" font-size="26" fill="#597482" text-anchor="middle">Pregunta: ¿cuánto de lo aprendido con Mendeley sirve con fotos de otros peces?</text>
+<rect x="40" y="190" width="340" height="440" rx="22" fill="#f4f8fa" stroke="#c8930b" stroke-width="4"/>
+<circle cx="210.0" cy="260" r="42" fill="#c8930b"/>
+<text x="210.0" y="274" font-family="Arial,Helvetica,sans-serif" font-size="38" font-weight="700" fill="#fff" text-anchor="middle">1</text>
+<text x="210.0" y="360" font-family="Arial,Helvetica,sans-serif" font-size="33" font-weight="700" fill="#17394d" text-anchor="middle">Partir de Mendeley</text>
+<text x="210.0" y="430" font-family="Arial,Helvetica,sans-serif" font-size="36" font-weight="700" fill="#c8930b" text-anchor="middle">2 modelos</text>
+<text x="210.0" y="504" font-family="Arial,Helvetica,sans-serif" font-size="25" fill="#3d5566" text-anchor="middle">ViT-Base/16 y</text>
+<text x="210.0" y="538" font-family="Arial,Helvetica,sans-serif" font-size="25" fill="#3d5566" text-anchor="middle">DenseNet-121,</text>
+<text x="210.0" y="572" font-family="Arial,Helvetica,sans-serif" font-size="25" fill="#3d5566" text-anchor="middle">ya entrenados</text>
+<path d="M388 390 H432" stroke="#5f7a89" stroke-width="6"/><path d="M428 376 L450 390 L428 404 Z" fill="#5f7a89"/>
+<rect x="450" y="190" width="340" height="440" rx="22" fill="#f4f8fa" stroke="#dd861a" stroke-width="4"/>
+<circle cx="620.0" cy="260" r="42" fill="#dd861a"/>
+<text x="620.0" y="274" font-family="Arial,Helvetica,sans-serif" font-size="38" font-weight="700" fill="#fff" text-anchor="middle">2</text>
+<text x="620.0" y="360" font-family="Arial,Helvetica,sans-serif" font-size="33" font-weight="700" fill="#17394d" text-anchor="middle">Fotos nuevas</text>
+<text x="620.0" y="430" font-family="Arial,Helvetica,sans-serif" font-size="36" font-weight="700" fill="#dd861a" text-anchor="middle">Trucha 1,150</text>
+<text x="620.0" y="474" font-family="Arial,Helvetica,sans-serif" font-size="36" font-weight="700" fill="#dd861a" text-anchor="middle">Rohu 1,261</text>
+<text x="620.0" y="548" font-family="Arial,Helvetica,sans-serif" font-size="25" fill="#3d5566" text-anchor="middle">peces de Perú</text>
+<text x="620.0" y="582" font-family="Arial,Helvetica,sans-serif" font-size="25" fill="#3d5566" text-anchor="middle">e India</text>
+<path d="M798 390 H842" stroke="#5f7a89" stroke-width="6"/><path d="M838 376 L860 390 L838 404 Z" fill="#5f7a89"/>
+<rect x="860" y="190" width="340" height="440" rx="22" fill="#f4f8fa" stroke="#5154a1" stroke-width="4"/>
+<circle cx="1030.0" cy="260" r="42" fill="#5154a1"/>
+<text x="1030.0" y="274" font-family="Arial,Helvetica,sans-serif" font-size="38" font-weight="700" fill="#fff" text-anchor="middle">3</text>
+<text x="1030.0" y="360" font-family="Arial,Helvetica,sans-serif" font-size="33" font-weight="700" fill="#17394d" text-anchor="middle">Ajuste mínimo</text>
+<text x="1030.0" y="430" font-family="Arial,Helvetica,sans-serif" font-size="36" font-weight="700" fill="#5154a1" text-anchor="middle">1 capa</text>
+<text x="1030.0" y="504" font-family="Arial,Helvetica,sans-serif" font-size="25" fill="#3d5566" text-anchor="middle">solo se reentrena</text>
+<text x="1030.0" y="538" font-family="Arial,Helvetica,sans-serif" font-size="25" fill="#3d5566" text-anchor="middle">la última capa</text>
+<path d="M1208 390 H1252" stroke="#5f7a89" stroke-width="6"/><path d="M1248 376 L1270 390 L1248 404 Z" fill="#5f7a89"/>
+<rect x="1270" y="190" width="340" height="440" rx="22" fill="#f4f8fa" stroke="#a42b69" stroke-width="4"/>
+<circle cx="1440.0" cy="260" r="42" fill="#a42b69"/>
+<text x="1440.0" y="274" font-family="Arial,Helvetica,sans-serif" font-size="38" font-weight="700" fill="#fff" text-anchor="middle">4</text>
+<text x="1440.0" y="360" font-family="Arial,Helvetica,sans-serif" font-size="33" font-weight="700" fill="#17394d" text-anchor="middle">Examen</text>
+<text x="1440.0" y="430" font-family="Arial,Helvetica,sans-serif" font-size="36" font-weight="700" fill="#a42b69" text-anchor="middle">10 folds</text>
+<text x="1440.0" y="504" font-family="Arial,Helvetica,sans-serif" font-size="25" fill="#3d5566" text-anchor="middle">cada foto se evalúa</text>
+<text x="1440.0" y="538" font-family="Arial,Helvetica,sans-serif" font-size="25" fill="#3d5566" text-anchor="middle">una sola vez</text>
+<path d="M1618 390 H1662" stroke="#5f7a89" stroke-width="6"/><path d="M1658 376 L1680 390 L1658 404 Z" fill="#5f7a89"/>
+<rect x="1680" y="190" width="340" height="440" rx="22" fill="#f4f8fa" stroke="#148f87" stroke-width="4"/>
+<circle cx="1850.0" cy="260" r="42" fill="#148f87"/>
+<text x="1850.0" y="274" font-family="Arial,Helvetica,sans-serif" font-size="38" font-weight="700" fill="#fff" text-anchor="middle">5</text>
+<text x="1850.0" y="360" font-family="Arial,Helvetica,sans-serif" font-size="33" font-weight="700" fill="#17394d" text-anchor="middle">Comparar</text>
+<text x="1850.0" y="430" font-family="Arial,Helvetica,sans-serif" font-size="36" font-weight="700" fill="#148f87" text-anchor="middle">vs Mendeley</text>
+<text x="1850.0" y="504" font-family="Arial,Helvetica,sans-serif" font-size="25" fill="#3d5566" text-anchor="middle">¿cuánto conserva</text>
+<text x="1850.0" y="538" font-family="Arial,Helvetica,sans-serif" font-size="25" fill="#3d5566" text-anchor="middle">cada modelo?</text>
+<path d="M2028 390 H2072" stroke="#5f7a89" stroke-width="6"/><path d="M2068 376 L2090 390 L2068 404 Z" fill="#5f7a89"/>
+<rect x="2090" y="190" width="340" height="440" rx="22" fill="#fff8e1" stroke="#b8860b" stroke-width="7"/>
+<circle cx="2260.0" cy="260" r="42" fill="#b8860b"/>
+<text x="2260.0" y="274" font-family="Arial,Helvetica,sans-serif" font-size="38" font-weight="700" fill="#fff" text-anchor="middle">6</text>
+<text x="2260.0" y="360" font-family="Arial,Helvetica,sans-serif" font-size="33" font-weight="700" fill="#17394d" text-anchor="middle">Resultado</text>
+<text x="2260.0" y="430" font-family="Arial,Helvetica,sans-serif" font-size="36" font-weight="700" fill="#b8860b" text-anchor="middle">ViT-Base/16</text>
+<text x="2260.0" y="504" font-family="Arial,Helvetica,sans-serif" font-size="25" fill="#3d5566" text-anchor="middle">conserva más:</text>
+<text x="2260.0" y="538" font-family="Arial,Helvetica,sans-serif" font-size="25" fill="#3d5566" text-anchor="middle">89.0 % vs 86.5 % (Trucha)</text>
+<text x="2260.0" y="572" font-family="Arial,Helvetica,sans-serif" font-size="25" fill="#3d5566" text-anchor="middle">93.0 % vs 88.0 % (Rohu)</text>
+</svg>

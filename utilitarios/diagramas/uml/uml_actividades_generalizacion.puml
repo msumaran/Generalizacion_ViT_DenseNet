@@ -1,0 +1,53 @@
+@startuml uml_actividades_generalizacion
+!include ../../../../herramientas_docx/uml/estilo.puml
+title Experimento de generalización · Diagrama de actividades (UML)
+
+start
+partition "Antes del experimento" {
+  fork
+    :Seleccionar fotos de trucha (OneDrive, Perú);
+  fork again
+    :Seleccionar fotos de Rohu (Kaggle, India);
+  end fork
+}
+partition "Etapa 1 · Preparar datos" {
+  :Revisar a mano 128 recortes dudosos de trucha\n(se excluyen 46);
+  :Dejar listas las fotos (Trucha 1,150 · Rohu 1,261);
+}
+repeat :Tomar el siguiente pez (Trucha, Rohu);
+  partition "Etapa 2 · Preparar experimento" {
+    :Dividir en 10 folds (una vez;\nen Rohu las ráfagas van juntas);
+  }
+  repeat :Tomar el siguiente modelo (ViT-Base/16, DenseNet-121);
+    repeat :Tomar el siguiente fold (1 a 10);
+      partition "Etapa 2" {
+        :Cargar el checkpoint de Mendeley ((k − 1) mod 5) + 1;
+        :Congelar el modelo; solo cambia la última capa;
+      }
+      partition "Etapa 3 · Entrenar la cabeza" {
+        repeat :Una pasada por los otros 9 folds (época);
+          :Probar en el fold que quedó fuera y medir el F1;
+          if (¿F1 mejoró?) then (sí)
+            :Guardar la cabeza de esa época;
+          else (no)
+          endif
+        repeat while (¿menos de 8 épocas sin mejora\ny menos de 30 épocas?) is (sí) not (no)
+      }
+      partition "Etapa 4 · Evaluar" {
+        :Clasificar el fold con la cabeza de la mejor época;
+        :Matriz de confusión, ROC y AUC del fold;
+      }
+    repeat while (¿quedan folds?) is (sí) not (no)
+    partition "Etapa 5 · Reunir resultados" {
+      :Juntar los 10 folds (cada foto evaluada una vez);
+      :F1 y AUC del modelo; matrices y curvas ROC;
+    }
+  repeat while (¿quedan modelos?) is (sí) not (no)
+repeat while (¿quedan peces?) is (sí) not (no)
+partition "Etapa 6 · Comparar y documentar" {
+  :Comparar con Mendeley (TRD, Gap) y ViT frente a CNN (RBE);
+  :Prueba de Wilcoxon;
+  :Documentar tablas, gráficas y registros;
+}
+stop
+@enduml

@@ -1,0 +1,64 @@
+@startuml uml_componentes_generalizacion
+!include ../../../../herramientas_docx/uml/estilo.puml
+title Experimento de generalización · Diagrama de componentes (UML)
+
+package "Antes del experimento · Seleccionar imágenes" {
+  database "Selección de trucha\nOneDrive (Perú)" as trucha
+  database "Selección de Rohu\nKaggle (India)\n1,652 fotos · se excluyen 131 · quedan 1,521" as rohu
+}
+
+package "Etapa 1 · Preparar datos" {
+  component "Revisión de trucha\n(128 dudosos · 46 excluidos)" as revision
+  database "Fotos listas\nTrucha 1,150 · Rohu 1,261\n(domains.py)" as fotos
+}
+
+package "Etapa 2 · Preparar experimento" {
+  artifact "Modelo de Mendeley\n(5 checkpoints; fold k → ((k − 1) mod 5) + 1)" as ckpt
+  component "Dividir en 10 folds\n(StratifiedGroupKFold)" as folds
+}
+
+package "Etapa 3 · Entrenar la cabeza" {
+  component "Entrenar la cabeza\n(entrenar_fold)" as entrenar
+  component "Probar en el fold" as probar
+  component "Guardar y decidir\n(mejor F1 · paciencia 8)" as guardar
+}
+
+package "Etapa 4 · Evaluar" {
+  component "Evaluar el fold\n(matriz · ROC · AUC)" as evaluar
+}
+
+package "Etapa 5 · Reunir resultados" {
+  component "Reunir 10 folds\n(compute_metrics)" as reunir
+  artifact "Gráficas\n(matrices · ROC)" as graficas
+}
+
+package "Etapa 6 · Comparar y documentar" {
+  component "Comparar\n(TRD · Gap · RBE · Wilcoxon)" as comparar
+  artifact "Documentación" as doc
+}
+
+artifact "Registros de ejecución\n(2_logs/)" as logs
+
+trucha --> revision : recortes
+revision --> fotos : trucha válida
+rohu --> fotos : Rohu depurada
+fotos --> folds : fotos y clase
+ckpt --> entrenar : modelo
+folds --> entrenar : los otros 9
+folds --> probar : 1 fold
+entrenar --> probar : cabeza entrenada
+probar --> guardar : F1 de la época
+guardar --> evaluar : al terminar:\nmejor época
+evaluar --> reunir
+reunir --> graficas
+reunir --> comparar
+comparar --> doc
+graficas --> doc
+entrenar ..> logs : registro por época
+logs ..> doc : respaldo
+
+legend bottom
+  Caja con pestañas: componente (programa o función). Cilindro: conjunto de fotos. Hoja: archivo guardado.
+  Flecha continua: paso de datos. Flecha punteada: registro que se guarda o se consulta.
+endlegend
+@enduml
