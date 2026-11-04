@@ -35,9 +35,9 @@ MODELOS = [  # (clave, nombre, familia, parametros, imagen, batch, cabeza entren
 ]
 # F1 macro pooled en Mendeley (dominio fuente): Mendeley_ViT_DenseNet/3_resultados_test_por_modelo/
 # metricas_pooled_por_modelo.csv
-F1_FUENTE = {"vit_base_patch16_224": 96.96, "densenet121": 95.66}
+F1_FUENTE = {"vit_base_patch16_224": 97.04, "densenet121": 95.66}
 DOMINIOS = [("trucha", "Trucha"), ("rohu", "Rohu")]
-LOG = "2_logs/linear_probe_10fold.log"
+LOG = "2_logs/linear_probe_10fold.log (6 folds reutilizados) y 2_logs/linear_probe_10fold_30ep.log (34 folds)"
 RES = "3_resultados/{dom}/linear_probe_10fold"  # salida de linear_probe_con_test.py --protocolo original --folds 10
 K = 10
 
@@ -162,7 +162,7 @@ ETAPAS = [  # (titulo, linea 1, linea 2) -- misma figura de flujo que la documen
      "por corrida: 9 folds entrenan · 1 fold evalúa (semilla 42)"),
     ("Configuración de los 2 modelos (congelado)", "ViT-Base/16 + DenseNet-121 desde los checkpoints de Mendeley",
      "backbone congelado · solo se entrena la cabeza"),
-    ("Entrenamiento de la cabeza y mejor epoch", "Máx. 30 epochs · early stopping = 8",
+    ("Entrenamiento de la cabeza y mejor epoch", "30 epochs completos en cada fold",
      "criterio: mejor val_F1 macro por fold"),
     ("Evaluación por fold", "Mejor epoch → fold de evaluación",
      "matriz de confusión + probabilidades + métricas"),
@@ -407,8 +407,8 @@ GLOSARIO = [
                                      "denominador. Un valor bajo indica un modelo estable."),
     ("Dominio fuente", "Conjunto con el que se entrenaron los modelos base: Mendeley (8,000 imágenes)."),
     ("Dominio objetivo", "Conjunto nuevo al que se transfiere el modelo: Trucha o Rohu."),
-    ("Early stopping", "Regla que detiene el entrenamiento cuando val_F1 no mejora durante un número de epochs "
-                       "(paciencia = 8)."),
+    ("Early stopping", "Regla que detiene el entrenamiento cuando val_F1 deja de mejorar. No se aplica en los "
+                       "resultados de este documento: los 40 folds corren 30 epochs."),
     ("Epoch", "Una pasada completa del modelo por todas las imágenes de entrenamiento."),
     ("Especificidad", "De las imágenes que no son de la clase evaluada, porcentaje que el modelo descartó "
                       "correctamente: TN/(TN+FP) × 100."),
@@ -436,7 +436,7 @@ GLOSARIO = [
     ("MPS", "Metal Performance Shaders: aceleración por GPU de PyTorch en equipos Apple."),
     ("OOF (out-of-fold)", "Predicción que recibe una imagen de la cabeza entrenada con los otros 9 folds, que "
                           "no la vio en entrenamiento."),
-    ("Paciencia", "Número de epochs seguidos sin mejora de val_F1 que se toleran antes del early stopping."),
+    ("Paciencia", "Contador de epochs seguidos sin mejora de val_F1; en las tablas por epoch no detiene el entrenamiento."),
     ("Parámetros", "Cantidad de pesos del modelo, en millones (M); los entrenables aquí son solo los de la "
                    "cabeza."),
     ("Pooled", "Resultado calculado una sola vez sobre todas las predicciones OOF concatenadas, no como promedio "
@@ -540,8 +540,8 @@ def generar(datos, plantilla):
                 "Tamaño de imagen", "Batch size"],
           [(n, fam, par, f"{cab:,}", f"{img}×{img}", b) for _, n, fam, par, img, b, cab in MODELOS])
     parrafo(doc, "optimizador AdamW sobre la cabeza (learning rate 1e-4, weight decay 1e-4), "
-                 "CosineAnnealingLR, CrossEntropyLoss, hasta 30 epochs con early stopping (paciencia 8 epochs sin "
-                 "mejora de val_F1).", prefijo="Hiperparámetros (linear_probe_con_test.py, entrenar_fold): ")
+                 "CosineAnnealingLR, CrossEntropyLoss, 30 epochs completos en cada fold (--patience 30, que no "
+                 "detiene ningún fold).", prefijo="Hiperparámetros (linear_probe_con_test.py, entrenar_fold): ")
     parrafo(doc, "cada imagen de entrenamiento aparece una sola vez por epoch, con la augmentación "
                  "estocástica estándar de get_transforms_v3 (recorte, flip, color, blur, rotación, erasing). La "
                  "evaluación nunca se aumenta.", prefijo="Sin augmentación x2: ")
@@ -563,8 +563,8 @@ def generar(datos, plantilla):
     ])
 
     titulo(doc, "1.4 Etapa 4 — Entrenamiento de la cabeza y selección del mejor epoch", 2)
-    parrafo(doc, "Por cada combinación (modelo, dominio, fold) — 40 en total — se entrena la cabeza hasta 30 "
-                 "epochs. En cada epoch se mide val_F1 sobre el fold de evaluación; se guardan las predicciones "
+    parrafo(doc, "Por cada combinación (modelo, dominio, fold) — 40 en total — se entrena la cabeza durante 30 "
+                 "epochs completos. En cada epoch se mide val_F1 sobre el fold de evaluación; se guardan las predicciones "
                  "del epoch con mejor val_F1, que son las que se reportan (no las del último epoch).")
     negrita(doc, "Corridas experimentales por modelo y dominio")
     filas = []
@@ -574,10 +574,15 @@ def generar(datos, plantilla):
             filas.append((nombre, dominio, "10", sum(f["epochs"] for f in d["folds"]), "10", f"{d['pooled'].sum():,}"))
     tabla(doc, ["Modelo", "Dominio", "Corridas (folds)", "Epochs ejecutados", "Evaluaciones", "Predicciones OOF"],
           filas)
-    parrafo(doc, "Epochs ejecutados = suma de los 10 folds (máximo 30 por fold; menos de 300 indica early "
-                 "stopping). Una sola corrida (linear_probe_con_test.py --protocolo original --folds 10) guarda, "
-                 "por fold, val_F1 por epoch, las predicciones, la matriz de confusión y la curva ROC; todas las "
-                 "cifras de este documento salen de ella. Log: " + LOG + ".", prefijo="Nota. ")
+    parrafo(doc, "Epochs ejecutados = suma de los 10 folds (30 por fold). linear_probe_con_test.py (--protocolo "
+                 "original --folds 10 --epochs 30 --patience 30) guarda, por fold, val_F1 por epoch, las "
+                 "predicciones, la matriz de confusión y la curva ROC; todas las cifras de este documento salen "
+                 "de ahí. La corrida anterior usaba paciencia 8 y solo 6 de los 40 folds llegaron al epoch 30: "
+                 "esos 6 se reutilizaron y los otros 34 se volvieron a entrenar desde cero. El script fija la "
+                 "semilla de la partición, pero no la del entrenamiento (orden de los lotes y augmentación), así "
+                 "que los 34 folds son entrenamientos nuevos y no una continuación de los anteriores. Por eso el "
+                 "F1 de un fold puede subir o bajar frente a la corrida anterior. Log: " + LOG + ".",
+            prefijo="Nota. ")
 
     titulo(doc, "1.5 Etapa 5 — Evaluación por fold", 2)
     parrafo(doc, "Con las predicciones del mejor epoch de cada fold se arma la matriz de confusión del fold y se "
@@ -767,7 +772,7 @@ def generar(datos, plantilla):
         titulo(doc, f"3.{i}.1 Entrenamiento — val_F1 por epoch", 3)
         archivo(doc, f"{RES.replace('{dom}', '{trucha,rohu}')}/{clave}/epochs_fold{{1..10}}.csv y resumen.csv",
                 "linear_probe_con_test.py — entrenar_fold(): mide val_F1 al final de cada epoch, guarda la cabeza "
-                "del mejor epoch y corta cuando pasan 8 epochs seguidos sin mejora.")
+                "del mejor epoch; con --patience 30 corre los 30 epochs.")
         for dom, dominio in DOMINIOS:
             d = datos[dom, clave]
             png = curvas_epoch(datos, dom, clave, nombre, dominio)
@@ -779,17 +784,14 @@ def generar(datos, plantilla):
             for k, f in enumerate(d["folds"], start=1):
                 e = f["ep"]
                 mejor = e.loc[e.val_f1.idxmax()]
-                assert (len(e) == 30 and e.paciencia.iloc[-1] < 8) or (e.paciencia.iloc[-1] == 8 and len(e) == int(mejor.epoch) + 8)
-                parada = "límite de 30 epochs" if e.paciencia.iloc[-1] < 8 else "8 epochs sin mejora"
-                filas.append((f"Fold {k}", (k - 1) % 5 + 1, f["elegido"], f2(mejor.val_f1), len(e), parada))
-            tabla(doc, ["Fold", "Checkpoint Mendeley", "Epoch elegido", "val_F1 en ese epoch", "Epoch de corte",
-                        "Motivo de la parada"], filas)
-            parrafo(doc, "cada fold se entrena hasta 30 epochs y se detiene antes si pasan 8 epochs seguidos sin "
-                         "superar su mejor val_F1 (paciencia = 8). Por eso cada fold corta en un epoch distinto: el "
-                         "corte es el epoch elegido + 8, salvo que el fold siga mejorando y llegue al límite de 30. "
-                         "Qué epoch es el mejor depende de las imágenes del fold y del checkpoint de Mendeley del que "
-                         "parte. Siempre se usa el modelo del epoch elegido, no el del último.",
-                    prefijo="Por qué cada fold para en un epoch distinto: ", size=9.5)
+                assert len(e) == 30, (dom, clave, k)
+                filas.append((f"Fold {k}", (k - 1) % 5 + 1, f["elegido"], f2(mejor.val_f1), len(e)))
+            tabla(doc, ["Fold", "Checkpoint Mendeley", "Epoch elegido", "val_F1 en ese epoch", "Epochs corridos"],
+                  filas)
+            parrafo(doc, "todos los folds corren los 30 epochs. Qué epoch es el mejor depende de las imágenes del "
+                         "fold y del checkpoint de Mendeley del que parte. Siempre se usa el modelo del epoch "
+                         "elegido, no el del último.",
+                    prefijo="Por qué cada fold elige un epoch distinto: ", size=9.5)
             sd = statistics.stdev(f["f1"] for f in d["folds"])
             parrafo(doc, f"Media del F1 de los 10 folds = {f2(d['f1_oficial'])} ± {f2(sd)}. val_F1 en el epoch "
                          f"elegido es el F1 del fold, porque el mismo fold elige el epoch y se evalúa (ver 1.2). "
