@@ -65,7 +65,7 @@ def actualizar():
     ref=find('1.2.2 Configuración de los modelos')
     insert_before(ref, 'La preparación de los folds parte de las imágenes aceptadas. En paralelo, se prepara el modelo a partir del checkpoint de Mendeley correspondiente; ambas entradas se reúnen para entrenar cada fold.')
     p=find('Por cada combinación (modelo, dominio, fold)')
-    p.text=('Cada combinación de modelo, conjunto y fold sigue un ciclo: se entrena la cabeza durante una época con nueve folds y luego se evalúa con el fold retenido. Se calcula el F1 macro y se compara con el mejor valor anterior. Si mejora, se actualiza el mejor resultado y la paciencia vuelve a cero; si no mejora, la paciencia aumenta. Después se comprueba si debe continuar: si quedan épocas y la paciencia no se agotó, se entrena la siguiente; al llegar a 30 épocas o acumular 8 sin mejora, se detiene y conserva el mejor resultado.')
+    p.text=('Cada combinación de modelo, conjunto y fold sigue un ciclo: se entrena la cabeza durante una época con nueve folds y luego se evalúa con el fold retenido. Se calcula el F1 macro y se compara con el mejor valor anterior. Si mejora, se actualiza el mejor resultado. El ciclo se repite hasta completar las 30 épocas y se conserva el mejor resultado.')
     ref=find('Corridas experimentales por modelo y dominio')
     insert_before(ref, 'El proceso se repite diez veces, usando un fold retenido diferente en cada ejecución. Se selecciona la mejor época dentro de cada fold; no se elige un único mejor fold para representar todo el experimento.')
     insert_before(ref, 'Una sola corrida registra, por fold, el F1 de cada época y, de la mejor época, las etiquetas, las predicciones y las probabilidades. Con ellas se calculan las matrices y las curvas.')

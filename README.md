@@ -8,17 +8,17 @@ gráficas de esos resultados.
 
 | Modelo | Trucha | Rohu | Mendeley (fuente) |
 |---|---|---|---|
-| **ViT-Base/16** | **86.33** | **90.18** | 96.96 |
-| DenseNet-121 | 82.77 | 84.16 | 95.66 |
+| **ViT-Base/16** | **86.45** | **89.68** | 97.04 |
+| DenseNet-121 | 82.68 | 84.25 | 95.66 |
 
-ViT-Base/16 supera a DenseNet-121 en 8/10 folds en Trucha (Wilcoxon pareado p = 0.0488) y en 9/10 en Rohu (p = 0.0059).
+ViT-Base/16 supera a DenseNet-121 en 8/10 folds en Trucha y en 8/10 en Rohu.
 
 ## Indicadores de robustez ante el cambio de dominio
 
 | Modelo | TRD Trucha (%) | TRD Rohu (%) | Gap Trucha (puntos) | Gap Rohu (puntos) | RBE Trucha (%) | RBE Rohu (%) |
 |---|---|---|---|---|---|---|
-| DenseNet-121 (CNN, baseline) | 86.53 | 87.98 | 12.89 | 11.50 | — | — |
-| **ViT-Base/16** | **89.04** | **93.01** | **10.63** | **6.78** | **17.53** | **41.04** |
+| DenseNet-121 (CNN, baseline) | 86.43 | 88.07 | 12.98 | 11.41 | — | — |
+| **ViT-Base/16** | **89.09** | **92.42** | **10.59** | **7.36** | **18.41** | **35.50** |
 
 ```
 TRD = (F1_objetivo / F1_fuente) × 100
@@ -37,7 +37,7 @@ Detalle de cada cálculo en `6_documentacion/Indicadores_Robustez_TRD_Gap_RBE.do
 
 | Carpeta / archivo | Contenido |
 |---|---|
-| `1_codigo/` | Código del experimento: corrida de 10 folds (`linear_probe_con_test.py`, `experimento_dataset_mixto.py`), `domains.py`, la prueba de Wilcoxon (`wilcoxon_vit_vs_densenet.py`) y la corrida anterior de 5 folds (`finetune_target_x2.py`, `experimento_rohu.py`, `linear_probe_confmat_roc.py`) |
+| `1_codigo/` | Código del experimento: corrida de 10 folds (`linear_probe_con_test.py`, `experimento_dataset_mixto.py`), `domains.py`, la prueba de Wilcoxon, reservada para la comparación final con el modelo propuesto (`wilcoxon_vit_vs_densenet.py`), y la corrida anterior de 5 folds (`finetune_target_x2.py`, `experimento_rohu.py`, `linear_probe_confmat_roc.py`) |
 | `2_logs/` | Log de la corrida de 10 folds: `linear_probe_10fold.log`. Logs de la corrida anterior de 5 folds: `trucha_congelado_sinx2.log`, `rohu_congelado_sinx2.log`, `rohu_confmat_roc.log` |
 | `3_resultados/` | `{trucha,rohu}/linear_probe_10fold/`: `resumen.csv` (F1, accuracy, AUC, épocas y tiempo por fold y pooled) y, por modelo, val_F1 por época, predicciones, matriz de confusión y curva ROC de cada fold y pooled. La corrida anterior de 5 folds queda en `congelado_sinx2_*.csv` y `confmat_roc/` |
 | `4_graficas/` | val_F1 por época, matrices de confusión y curvas ROC, pooled y por fold (10 folds), `{trucha,rohu}/{modelo}/`; `uml/` con los diagramas UML |
@@ -48,17 +48,17 @@ Detalle de cada cálculo en `6_documentacion/Indicadores_Robustez_TRD_Gap_RBE.do
 ## Método
 
 Congelado (linear probe): backbone congelado (pesos fijos, checkpoint de Mendeley), solo
-se entrena la cabeza de clasificación. 30 épocas, patience=8, 10 folds (el fold k parte del checkpoint Mendeley ((k−1) mod 5)+1; Mendeley se entrenó con 5 folds).
+se entrena la cabeza de clasificación. 30 épocas, 10 folds (el fold k parte del checkpoint Mendeley ((k−1) mod 5)+1; Mendeley se entrenó con 5 folds).
 Cada imagen de entrenamiento aparece una vez por época, con variaciones al azar (recorte, volteo,
 color, desenfoque, rotación y borrado). La adaptación es supervisada (usa etiquetas del dominio objetivo).
 
-Todas las cifras (tablas, matrices, ROC, val_F1 por epoch) salen de una sola corrida de 10 folds.
+Todas las cifras (tablas, matrices, ROC, val_F1 por epoch) salen de la corrida de 10 folds a 30 épocas (`2_logs/linear_probe_10fold_30ep.log`). Seis folds se reutilizan de la corrida anterior. Las predicciones por imagen de esa corrida están en `corrida_anterior/`, dentro de cada modelo; el tiempo por fold de la corrida de 30 épocas no quedó registrado.
 
 ## Reproducir
 
 ```bash
-python 1_codigo/linear_probe_con_test.py --protocolo original --folds 10 --epochs 30 --patience 8
-# escribe en 1_codigo/resultados/congelado_30ep/original_10fold/{trucha,rohu}/; copiado sin los .pt a 3_resultados/{trucha,rohu}/linear_probe_10fold/
+python 1_codigo/linear_probe_con_test.py --protocolo original --folds 10 --epochs 30 --patience 30
+# escribe en 1_codigo/resultados/congelado_30ep/original/{trucha,rohu}/; copiado sin los .pt a 3_resultados/{trucha,rohu}/linear_probe_10fold/
 python utilitarios/documentacion/generar_documentacion_tecnica.py   # documento base y gráficas por fold
 ```
 

@@ -20,7 +20,7 @@ package "Etapa 2 · Preparar experimento" {
 package "Etapa 3 · Entrenar la cabeza" {
   component "Entrenar la cabeza\n(entrenar_fold)" as entrenar
   component "Probar en el fold" as probar
-  component "Guardar y decidir\n(mejor F1 · paciencia 8)" as guardar
+  component "Guardar y decidir\n(mejor F1)" as guardar
 }
 
 package "Etapa 4 · Evaluar" {
@@ -33,7 +33,7 @@ package "Etapa 5 · Reunir resultados" {
 }
 
 package "Etapa 6 · Comparar y documentar" {
-  component "Comparar\n(TRD · Gap · RBE · Wilcoxon)" as comparar
+  component "Comparar\n(TRD · Gap · RBE)" as comparar
   artifact "Documentación" as doc
 }
 
@@ -58,7 +58,7 @@ entrenar ..> logs : registro por época
 logs ..> doc : respaldo
 
 legend bottom
-  Caja con pestañas: componente (programa o función). Cilindro: conjunto de fotos. Hoja: archivo guardado.
+  Caja con pestañas: componente (script o función). Cilindro: conjunto de fotos. Hoja: archivo guardado.
   Flecha continua: paso de datos. Flecha punteada: registro que se guarda o se consulta.
 endlegend
 @enduml

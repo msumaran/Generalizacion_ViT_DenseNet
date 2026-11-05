@@ -31,6 +31,8 @@ from generar_diagrama_7_etapas import TIPO_CAJA  # noqa: E402  (tipo de cada caj
 ROOT = Path(__file__).resolve().parents[2]
 DOC = ROOT / "6_documentacion" / "Documentacion_Tecnica_ViT_DenseNet.docx"
 FIGURA = ROOT / "6_documentacion" / "diagramas" / "arquitectura_generalizacion_7_etapas.png"
+# Se genera con utilitarios/diagramas/generar_collage_revision_trucha.py en el equipo que tiene las imágenes
+COLLAGE = ROOT / "4_graficas" / "revision_trucha" / "collage_revision_trucha.png"
 MARCA = "Explicación del autor"
 SOMBRA = "FFF2CC"
 
@@ -106,6 +108,21 @@ class Cursor:
         self.el.addnext(t._tbl)
         self.el = t._tbl
         return t
+
+
+def formulas_en_consolas(tabla):
+    """En «Cómo se obtiene», la primera línea es el texto y las demás son fórmulas."""
+    for fila in tabla.rows[1:]:
+        celda = fila.cells[1]
+        texto, *formulas = celda.text.split("\n")
+        celda.paragraphs[0].runs[0].text = texto
+        for formula in formulas:
+            par = copy.deepcopy(celda.paragraphs[0]._p)
+            celda._tc.append(par)
+            run = celda.paragraphs[-1].runs[0]
+            run.text = formula
+            run.font.name = "Consolas"
+            run.font.size = Pt(8.5)
 
 
 def find(doc, prefix):
@@ -296,34 +313,37 @@ QUE_SE_HACE = {
     "1.6 Etapa 6": (
         "Se compara qué tan bien funciona cada modelo con los peces nuevos frente a lo que logró en "
         "Mendeley, con tres indicadores (2.6): TRD, qué porcentaje del desempeño de Mendeley conserva; "
-        "Gap, cuánto pierde; y RBE, cuánto menos pierde ViT-Base/16 que DenseNet-121. Además, la prueba "
-        "de Wilcoxon comprueba que la ventaja de ViT-Base/16 no se debe al azar."),
+        "Gap, cuánto pierde; y RBE, cuánto menos pierde ViT-Base/16 que DenseNet-121."),
 }
 
 # Nota interna del autor (resumen informal; no reemplaza la explicación del documento)
 ETAPAS = {
-    "1.1 Etapa 1": "Se reúnen fotos de ojos de Trucha (Perú) y de Rohu (India), dos especies que los programas "
-                   "no vieron en el experimento Mendeley. En Trucha, las fotos de los días 1 y 3 de "
-                   "almacenamiento se consideran frescas y las de los días 5, 7 y 9, no frescas. Las fotos en "
-                   "las que el ojo no se detectó con seguridad se revisaron a mano, y se descartaron las que "
-                   "no lo mostraban bien. Quedan 1,150 fotos de Trucha y 1,261 de Rohu.",
-    "1.2 Etapa 2": "Las fotos de Trucha y de Rohu se reparten en 10 lotes, cada uno con la misma proporción de "
-                   "fresco y no fresco. En Rohu hay fotos casi idénticas tomadas en ráfaga; se colocan en el "
-                   "mismo lote para que el programa no se evalúe con una foto casi igual a otra que ya usó para "
-                   "aprender. También se cargan los dos programas elegidos en el experimento Mendeley.",
-    "1.3 Etapa 3": "El programa conserva lo que aprendió en Mendeley y solo se ajusta su última parte, la que "
-                   "decide entre fresco y no fresco, con las fotos de Trucha o de Rohu. Aprende con 9 lotes, se "
-                   "mide con el décimo y repite el proceso hasta 30 veces; si pasan 8 repeticiones sin mejora, "
-                   "se detiene.",
-    "1.4 Etapa 4": "En cada ronda se toman las respuestas del momento en que el programa obtuvo su mejor "
-                   "resultado con el lote que no usó para aprender. Se cuentan las fotos frescas y no frescas "
-                   "que clasificó bien y las que clasificó mal, para ver en qué tipo de foto se equivoca más.",
-    "1.5 Etapa 5": "Se juntan los 10 lotes de Trucha y los 10 de Rohu. Como cada foto se evaluó una sola vez, se "
-                   "obtiene una respuesta para cada foto y se calcula el puntaje final de cada programa en cada "
-                   "especie.",
-    "1.6 Etapa 6": "Se compara el puntaje en Trucha y en Rohu con el obtenido en Mendeley, para medir cuánto se "
-                   "pierde al cambiar de especie. ViT-Base/16 conservó más que DenseNet-121 en Trucha y en "
-                   "Rohu, y una prueba estadística confirma que esa diferencia no se debe al azar.",
+    "1.1 Etapa 1": "Se reúnen fotos de ojos de Trucha (Perú) y de Rohu (India), peces distintos a los del experimento "
+                   "Mendeley. En Trucha, las fotos de los días 1 y 3 de almacenamiento se consideran frescas y las de "
+                   "los días 5, 7 y 9, no frescas. Las fotos en las que el ojo no se detectó con seguridad se revisaron "
+                   "a mano, y se descartaron las que no lo mostraban bien. Quedan 1,150 fotos de Trucha y 1,261 de "
+                   "Rohu.",
+    "1.2 Etapa 2": "Las fotos de Trucha y de Rohu se reparten en 10 lotes, con proporciones parecidas de fresco y no fresco. "
+                   "En Rohu hay fotos casi idénticas tomadas en ráfaga; se colocan en el mismo lote para que el modelo no "
+                   "se evalúe con una foto casi igual a otra que ya usó para aprender. Se usan 10 lotes porque hay menos "
+                   "fotos que en Mendeley y así cada ronda aprende con el 90 %. También se cargan los dos modelos "
+                   "elegidos en Mendeley, ya entrenados.",
+    "1.3 Etapa 3": "El modelo conserva lo que aprendió en Mendeley y solo se ajusta su última parte, la que decide entre "
+                   "fresco y no fresco, con fotos del pez nuevo. Se hace así porque hay pocas fotos y para medir cuánto "
+                   "sirve por sí solo lo aprendido antes. En cada ronda aprende con 9 lotes y se mide con el décimo, "
+                   "durante 30 pasadas. Se guarda la pasada con el mejor resultado de esa ronda.",
+    "1.4 Etapa 4": "En cada ronda se toman las respuestas del momento en que el modelo obtuvo su mejor resultado con el "
+                   "lote que no usó para aprender. Se cuentan las fotos frescas y no frescas que clasificó bien y las que "
+                   "clasificó mal, para ver en qué tipo de foto se equivoca más. Como ese lote también eligió la mejor "
+                   "pasada, este resultado es del propio lote y no de un examen aparte.",
+    "1.5 Etapa 5": "Se juntan los 10 lotes de Trucha y los 10 de Rohu. Como cada foto se evaluó una sola vez, hay una "
+                   "respuesta para cada foto y se calcula la nota final de cada modelo en Trucha y en Rohu. También se "
+                   "promedian las notas de los 10 lotes, porque ese promedio se usa después para comparar con Mendeley.",
+    "1.6 Etapa 6": "Se compara la nota en Trucha y en Rohu con la obtenida en Mendeley, para medir cuánto se pierde al "
+                   "cambiar de pez. ViT-Base/16 conservó el 89.09 % de su nota en Trucha y el 92.42 % en Rohu; "
+                   "DenseNet-121, el 86.43 % y el 88.07 %. Es decir, ViT-Base/16 pierde menos en los dos casos y se "
+                   "adapta mejor a fotos que no conocía. Este resultado sirve de punto de partida para la adaptación de "
+                   "dominio, la siguiente etapa.",
 }
 
 # Frases de limitación que se quitan de párrafos existentes (pedido del autor)
@@ -341,54 +361,64 @@ FRASES_LIMITACION = [
 # Cajas de 6_documentacion/diagramas/arquitectura_generalizacion_7_etapas.png (generar_diagrama_7_etapas.py), en orden
 ARQUITECTURA = [
     ("Selección de trucha (antes del experimento). ",
-     "Del repositorio OneDrive (Perú) se toman las fotos por día de almacenamiento: los días 1 y 3 son "
-     "fresco y los días 5, 7 y 9, no fresco; en total 1,196 fotos (ver 1.1)."),
+     "es el punto de partida en trucha: del repositorio OneDrive (Perú) se toman las fotos por día de almacenamiento. "
+     "Los días 1 y 3 se consideran fresco y los días 5, 7 y 9, no fresco. Las fotos son de la cabeza completa, pero los "
+     "modelos aprendieron en Mendeley con fotos que muestran solo el ojo; por eso la función de recorte detecta el ojo "
+     "en cada foto y lo recorta, y se obtienen 1,196 imágenes (ver 1.1). Pasan al paso 3 para revisar su calidad. "
+     "Código: el recorte lo hace preprocess_ojos_trucha.py; collect_trucha en domains.py lee esos recortes y aplica "
+     "la selección."),
     ("Selección de Rohu (antes del experimento). ",
-     "Del repositorio Kaggle (India) se toman las 1,652 fotos de ojos; tras la depuración quedan 1,521."),
-    ("Revisión de trucha. ",
-     "Se revisaron a mano 128 recortes dudosos: se rescataron 82 y se excluyeron 46, así que de 1,196 "
-     "fotos quedan 1,150."),
-    ("Fotos listas. ",
-     "Trucha (1,150) y Rohu (1,261), cada foto etiquetada como fresco o no fresco."),
-    ("Modelo de Mendeley. ",
-     "Viene del experimento Mendeley (flecha superior): la mejor versión de ViT-Base/16 o DenseNet-121. "
-     "Mendeley tiene 5 checkpoints por modelo, uno por fold; el fold k usa el checkpoint ((k − 1) mod 5) + 1, "
-     "así que cada checkpoint se usa en dos folds."),
-    ("Dividir en 10 folds. ",
-     "Arma los 10 folds una sola vez. Después, en cada vuelta, 1 fold va a «Probar en el fold», donde "
-     "sirve de evaluación, y los otros 9 van a «Entrenar la cabeza». En Rohu, las "
-     "fotos casi iguales tomadas en ráfaga quedan siempre en el mismo fold."),
-    ("Entrenar la cabeza. ",
-     "Congela el modelo y entrena solo la última capa (la cabeza) con una pasada (época) por las fotos de "
-     "los 9 folds, con variaciones al azar (recorte, volteo, color, desenfoque, rotación y borrado). Cada "
-     "pasada continúa desde los pesos que dejó la anterior, sin reiniciar: la cabeza aprende de a poco."),
-    ("Probar en el fold. ",
-     "La cabeza recién entrenada clasifica las fotos del fold de evaluación, que no usó para aprender, y "
-     "se calcula el F1 de esa época. Es el mismo fold en todas las épocas de esa vuelta."),
-    ("Guardar y decidir. ",
-     "Compara ese F1 con el mejor anterior: si mejora, guarda una copia de la cabeza de esa época. Luego "
-     "decide: si todavía no se "
-     "cumple la parada (8 épocas sin mejora o 30 épocas), se repiten los tres pasos con otra pasada por los "
-     "mismos folds, sin reiniciar; si se cumple, la mejor época pasa a «Evaluar el fold» (flecha «al terminar: "
-     "mejor época»)."),
-    ("Evaluar el fold. ",
-     "Con la cabeza de la mejor época clasifica el fold, cuenta aciertos y errores por clase (matriz de "
+     "es el mismo punto de partida para el segundo pez: del repositorio Kaggle (India) se toman las 1,652 fotos de "
+     "ojos, cuya clase sale de la carpeta (Fresh_Eyes o Nonfresh_Eyes). Se excluyen 131 detecciones que no muestran bien "
+     "el ojo y quedan 1,521. Código: el recorte lo hace preprocess_ojos_rohu.py; collect_rohu_eyes en domains.py lee "
+     "esos recortes y aplica la selección."),
+    ("Revisión de trucha (etapa 1). ",
+     "las imágenes del paso 1 cuyo recorte automático quedó marcado como dudoso se revisan a mano: de 128, se rescatan "
+     "82 y se excluyen 46. Así, de 1,196 imágenes quedan 1,150."),
+    ("Fotos listas (etapa 1). ",
+     "reúne el resultado de los pasos 2 y 3, con cada foto etiquetada como fresco o no fresco. Son las fotos con las que se "
+     "evalúa: Trucha, con 1,150 imágenes (481 fresco y 669 no fresco), y Rohu, con 1,261 (422 fresco y 839 no "
+     "fresco; ver la Nota sobre Rohu)."),
+    ("Modelo de Mendeley (etapa 2). ",
+     "viene del experimento Mendeley (flecha superior): es la mejor versión de ViT-Base/16 o DenseNet-121 ya "
+     "entrenada, que se trae sin volver a entrenarla desde cero. Mendeley tiene 5 checkpoints por modelo, uno por fold; "
+     "el fold k usa el checkpoint ((k − 1) mod 5) + 1, así que cada checkpoint se usa en dos folds. Va al paso 7."),
+    ("Dividir en 10 folds (etapa 2). ",
+     "con las fotos del paso 4 se arman 10 folds una sola vez. Después, en cada vuelta, 1 fold queda reservado para "
+     "evaluar (pasos 8 y 10) y los otros 9 van a entrenar (paso 7). En Rohu, las fotos casi iguales tomadas en ráfaga "
+     "quedan siempre en el mismo fold, para no evaluar con una foto casi igual a otra usada al aprender."),
+    ("Entrenar la cabeza (etapa 3). ",
+     "aquí se juntan el modelo del paso 5 y las fotos del paso 6. Se congela el modelo y se entrena solo su última capa "
+     "(la cabeza, la parte que decide entre fresco y no fresco), con una pasada (época) por las fotos de los 9 folds y "
+     "con variaciones al azar: recorte, volteo, color, desenfoque, rotación y borrado. Cada pasada continúa desde los "
+     "pesos que dejó la anterior. Código: entrenar_fold en linear_probe_con_test.py."),
+    ("Probar en el fold (etapa 3). ",
+     "al terminar cada época del paso 7, la cabeza recién entrenada clasifica las fotos del fold reservado, que no usó "
+     "para aprender, y se calcula el F1 de esa época. Es el mismo fold en todas las épocas de esa vuelta."),
+    ("Guardar y decidir (etapa 3). ",
+     "compara el F1 del paso 8 con el mejor anterior: si mejora, guarda una copia de la cabeza de esa época. Si todavía "
+     "no se llega a las 30 épocas, se repiten los pasos 7 y 8 sin reiniciar. Al completarlas, la mejor época pasa al "
+     "paso 10 (flecha «al terminar: mejor época»)."),
+    ("Evaluar el fold (etapa 4). ",
+     "con la cabeza de la mejor época clasifica el fold reservado, cuenta aciertos y errores por clase (matriz de "
      "confusión) y calcula la curva ROC y el AUC del fold."),
-    ("Reunir 10 folds. ",
-     "Junta el resultado de los 10 folds, así que cada foto se evalúa una sola vez, y calcula el F1 y el "
-     "AUC de cada modelo en cada pez. El F1 va a «Comparar» y los datos, a «Gráficas»."),
-    ("Gráficas. ",
-     "Dibuja las matrices de confusión y las curvas ROC."),
-    ("Comparar. ",
-     "Recibe el F1 de cada modelo en el pez nuevo y el F1 que logró en Mendeley (flecha superior: 96.96 "
-     "y 95.66). Calcula cuánto conserva (TRD), cuánto pierde (Gap) y cuánto menos pierde ViT-Base/16 que "
-     "DenseNet-121 (RBE); la prueba de Wilcoxon comprueba que la diferencia no se deba al azar. Pasa los "
-     "indicadores a «Documentación»."),
-    ("Documentación. ",
-     "Este documento: reúne las tablas, las gráficas, los indicadores y los registros."),
+    ("Reunir 10 folds (etapa 5). ",
+     "cuando las 10 vueltas terminan, junta los resultados del paso 10. Como cada foto fue evaluada una sola vez, hay "
+     "una respuesta por foto; con ellas se calculan el F1 y el AUC de cada modelo en cada pez. El F1 va al paso 13 y "
+     "los datos, al paso 12."),
+    ("Gráficas (etapa 5). ",
+     "con los datos del paso 11 dibuja las matrices de confusión y las curvas ROC, que pasan a la documentación "
+     "(paso 14)."),
+    ("Comparar (etapa 6). ",
+     "recibe el F1 de cada modelo en el pez nuevo (paso 11) y el F1 que logró en Mendeley (flecha superior: 97.04 y "
+     "95.66). Calcula cuánto conserva (TRD), cuánto pierde (Gap) y cuánto menos pierde ViT-Base/16 que DenseNet-121 "
+     "(RBE). Los indicadores pasan al paso 14."),
+    ("Documentación (etapa 6). ",
+     "es este documento: reúne las tablas, las gráficas del paso 12, los indicadores del paso 13 y los registros del "
+     "paso 15."),
     ("Registros y resultados guardados. ",
-     "Lo que se anota en cada época y los resultados de cada fold de la corrida de 10 folds (flechas "
-     "punteadas). Respaldan cada número del documento."),
+     "es lo que se anota en cada época y los resultados de cada fold de la corrida de 10 folds, guardados en 2_logs/ y "
+     "3_resultados/ (flechas punteadas). Respaldan los números del documento."),
 ]
 
 # Anexo A — (dato, sección, archivo en este repositorio, script que lo genera)
@@ -403,13 +433,9 @@ ORIGEN_DATOS = [
     ("val_F1 por época, predicciones, matrices de confusión y curvas ROC (por fold y pooled)", "1.3 a 1.5 y 3.x",
      "3_resultados/{trucha,rohu}/linear_probe_10fold/{modelo}/*.csv", "linear_probe_con_test.py"),
     ("Registro de la corrida", "1.3 a 1.6", "2_logs/linear_probe_10fold.log", "linear_probe_con_test.py"),
-    ("Conjunto de Rohu (ver Nota sobre Rohu)", "Nota sobre Rohu", "2_logs/linear_probe_10fold.log",
-     "experimento_dataset_mixto.py (construir_dataset_mixto)"),
     ("F1 de Mendeley (dominio fuente)", "1.6 y 2.6",
      "Mendeley_ViT_DenseNet/3_resultados_test_por_modelo/metricas_pooled_por_modelo.csv",
      "dnc_5fold_confmat_roc.py"),
-    ("Prueba de Wilcoxon (ViT-Base/16 frente a DenseNet-121)", "1.6",
-     "3_resultados/wilcoxon_vit_vs_densenet.csv", "wilcoxon_vit_vs_densenet.py"),
     ("TRD, Gap y RBE", "1.6 y 2.6", "Se calculan con la media de los 10 folds y el F1 de Mendeley", "metrics.py"),
     ("Gráficas por fold y pooled", "3.x", "4_graficas/{trucha,rohu}/{modelo}/",
      "generar_documentacion_tecnica.py"),
@@ -457,8 +483,6 @@ GLOSARIO_NUEVO = [
      "aprender patrones generales, y rinde peor con fotos nuevas."),
     ("p-valor", "Probabilidad de observar una diferencia como la medida si en realidad los dos modelos "
      "rindieran igual; si es menor que 0.05, la diferencia se considera significativa."),
-    ("Prueba de Wilcoxon", "Prueba estadística no paramétrica que compara dos modelos medidos en los "
-     "mismos folds, sin suponer que los datos siguen una distribución normal."),
     ("Significancia estadística (α)", "Umbral para decidir si una diferencia es real; el plan de tesis "
      "fija α = 0.05."),
     ("Swin", "Transformer de visión que calcula la atención en ventanas locales desplazadas; evaluado en "
@@ -470,9 +494,9 @@ GLOSARIO_NUEVO = [
 # ViT-Base/16, Trucha — 3_resultados/trucha/linear_probe_10fold/vit_base_patch16_224/confusion_matrix_fold{k}.csv
 # y resumen.csv (F1 macro de cada fold)
 VIT_TRUCHA = [
-    (1, 37, 12, 5, 61, "84.54"), (2, 43, 5, 7, 60, "89.33"), (3, 38, 10, 8, 59, "83.81"),
-    (4, 31, 17, 6, 61, "78.54"), (5, 45, 3, 2, 65, "95.52"), (6, 40, 8, 5, 62, "88.27"),
-    (7, 39, 9, 3, 64, "89.05"), (8, 39, 9, 4, 63, "88.18"), (9, 31, 17, 2, 65, "81.90"),
+    (1, 37, 12, 6, 60, "83.70"), (2, 43, 5, 5, 62, "91.06"), (3, 38, 10, 8, 59, "83.81"),
+    (4, 31, 17, 6, 61, "78.54"), (5, 45, 3, 2, 65, "95.52"), (6, 41, 7, 5, 62, "89.21"),
+    (7, 38, 10, 3, 64, "88.09"), (8, 39, 9, 5, 62, "87.32"), (9, 33, 15, 3, 64, "83.12"),
     (10, 34, 14, 3, 64, "84.14"),
 ]
 
@@ -499,8 +523,7 @@ CONCEPTOS = [
     ("Fold y fold retenido", "Las fotos se dividen en 10 partes (folds). En cada repetición, 9 partes "
      "entrenan la cabeza y la parte restante (el fold retenido) sirve de examen. Así todas las fotos se "
      "evalúan una vez.", "1.2.1"),
-    ("Época (epoch) y paciencia", "Una época es una vuelta completa por las fotos de entrenamiento. Si el "
-     "resultado no mejora durante 8 épocas seguidas, el entrenamiento se detiene.", "1.3"),
+    ("Época (epoch)", "Una época es una vuelta completa por las fotos de entrenamiento. Cada fold completa 30 épocas.", "1.3"),
     ("Matriz de confusión", "Tabla que cuenta aciertos y errores para fresco y no fresco.", "2.1"),
     ("F1 macro", "Nota de 0 a 100 que resume los aciertos de las dos clases con el mismo peso. Es la "
      "métrica principal.", "2.2"),
@@ -516,11 +539,9 @@ CONCEPTOS = [
     ("Gap", "Cuánto aumenta el error al pasar de Mendeley al nuevo dominio; mientras más bajo, mejor.", "2.6"),
     ("RBE", "Cuánto reduce ViT-Base/16 la brecha de error en comparación con DenseNet-121; si es positivo, "
      "ViT-Base/16 se adapta mejor.", "2.6"),
-    ("Prueba de Wilcoxon", "Prueba estadística que indica si la ventaja de un modelo sobre otro es real "
-     "o podría deberse al azar. Si p es menor que 0.05, la diferencia es significativa.", "1.6"),
     ("F1 medio y F1 pooled", "De la misma corrida de 10 folds salen dos resúmenes: el F1 medio, promedio del "
      "F1 de los 10 folds, que usan TRD, Gap y RBE; y el F1 pooled, calculado una vez con todas las respuestas "
-     "juntas. Difieren poco (por ejemplo, 86.33 frente a 86.42 en ViT-Base/16, Trucha).", "1.6"),
+     "juntas. Difieren poco (por ejemplo, 86.45 frente a 86.52 en ViT-Base/16, Trucha).", "1.6"),
 ]
 
 
@@ -548,12 +569,11 @@ def para_publico_general(doc):
           "de dominio (CORAL).")
     cur.p(("Resultado principal. ", "b"),
           "ViT-Base/16 conserva más de su desempeño que DenseNet-121 en los dos dominios. En Trucha, "
-          "ViT-Base/16 conserva el 89.04 % de su F1 de Mendeley (baja de 96.96 a 86.33) y DenseNet-121 el "
-          "86.53 % (de 95.66 a 82.77). Dicho de otra forma, DenseNet-121 pierde 12.89 puntos y ViT-Base/16 "
-          "10.63: ViT-Base/16 pierde un 17.53 % menos. En Rohu, ViT-Base/16 conserva el 93.01 % y "
-          "DenseNet-121 el 87.98 %, y ViT-Base/16 pierde un 41.04 % menos. Los resultados salen de una "
-          "validación cruzada de 10 folds. Esa ventaja es "
-          "estadísticamente significativa en los dos dominios (prueba de Wilcoxon).")
+          "ViT-Base/16 conserva el 89.09 % de su F1 de Mendeley (baja de 97.04 a 86.45) y DenseNet-121 el "
+          "86.43 % (de 95.66 a 82.68). Dicho de otra forma, DenseNet-121 pierde 12.98 puntos y ViT-Base/16 "
+          "10.59: ViT-Base/16 pierde un 18.41 % menos. En Rohu, ViT-Base/16 conserva el 92.42 % y "
+          "DenseNet-121 el 88.07 %, y ViT-Base/16 pierde un 35.50 % menos. Los resultados salen de una "
+          "validación cruzada de 10 folds.")
     figura(cur, FIGURA.with_name("vista_simple_generalizacion.png"),
            "La generalización en 6 pasos. El detalle de cada etapa está en la sección 1.")
     cur.p("Por qué esta etapa se diseñó así", style="Heading 2")
@@ -567,16 +587,13 @@ def para_publico_general(doc):
          "Con 1,150 y 1,261 imágenes, separar además un test aparte dejaría muy pocas imágenes para entrenar "
          "y para evaluar; así, cada imagen se evalúa una vez (ver 1.2.1). Las primeras pruebas se hicieron "
          "con 5 folds; la versión final usa 10 folds por recomendación del asesor: cada fold entrena con más "
-         "imágenes (90 %) y hay 10 resultados por modelo para la prueba de Wilcoxon."),
+         "imágenes (90 %)."),
         ("Mismas condiciones para los dos modelos. ",
          "ViT-Base/16 y DenseNet-121 usan los mismos folds, la misma semilla y la misma configuración, para "
          "que las diferencias se deban al modelo."),
         ("Comparación con Mendeley. ",
          "TRD, Gap y RBE comparan el resultado en cada pez con el de Mendeley, para medir cuánto se pierde "
          "al cambiar de fotos (ver 2.6)."),
-        ("Prueba de Wilcoxon. ",
-         "Comprueba que la ventaja de ViT-Base/16 sobre DenseNet-121 no se deba al azar, comparando los 10 "
-         "folds; con 5 no podría llegar a 0.05 (ver 1.6)."),
     ]:
         cur.p((titulo, "b"), texto, style="List Bullet")
     cur.p("Cómo está organizado el documento", style="Heading 2")
@@ -586,8 +603,8 @@ def para_publico_general(doc):
           "explican en detalle; el resto de términos está en el glosario del Anexo B.", shade=False)
     cur.table(CONCEPTOS)
     cur.p("Una sola corrida de 10 folds", style="Heading 3")
-    cur.p("Todas las cifras de este documento (tablas, matrices, curvas ROC, F1 por época, TRD, Gap, RBE y "
-          "prueba de Wilcoxon) salen de una sola corrida: linear_probe_con_test.py --protocolo original "
+    cur.p("Todas las cifras de este documento (tablas, matrices, curvas ROC, F1 por época, TRD, Gap y RBE) "
+          "salen de una sola corrida: linear_probe_con_test.py --protocolo original "
           "--folds 10. Cada imagen se evalúa exactamente una vez, en el fold que queda fuera: en Trucha, 10 "
           "folds de 115 imágenes; en Rohu, folds de 117 a 133. La suma de las imágenes de evaluación de los "
           "10 folds (3_resultados/{trucha,rohu}/linear_probe_10fold/resumen.csv) y la de cada matriz de "
@@ -600,7 +617,7 @@ def para_publico_general(doc):
     cur.el = ref._p.getprevious()
     cur.p("En palabras simples: los dos modelos se entrenan con la misma receta, para que la comparación "
           "sea justa. Los hiperparámetros son los ajustes de esa receta (qué tan rápido aprende la cabeza, "
-          "cuántas épocas como máximo, cuándo detenerse).")
+          "cuántas épocas).")
 
     # Justificaciones (borradores para que el autor las revise)
     cur = Cursor(doc, find(doc, "Cada fold parte de un checkpoint de Mendeley"))
@@ -625,33 +642,7 @@ def para_publico_general(doc):
           "la ausencia de warmup difieren de Mendeley (0.05, Focal Loss y 3 épocas de warmup): en pruebas "
           "previas con el backbone congelado, esta configuración dio los mejores resultados. Además, "
           "el límite de 12 épocas del ajuste completo cortaba la cabeza antes de su mejor "
-          "resultado; se amplió a 30. En esta corrida, 35 de los 40 folds se detuvieron por paciencia "
-          "antes del límite.")
-    cur = Cursor(doc, find(doc, "Por qué algunos folds terminan antes de 30 epochs"))
-    cur.p(("Por qué la paciencia es 8 y no 7 como en Mendeley. ", "b"),
-          "En Mendeley la época se elige con 960 imágenes de validación por fold; en Trucha y Rohu, con el "
-          "fold retenido, que tiene entre 115 y 133 imágenes. Con tan pocas imágenes, cada foto mal "
-          "clasificada mueve el accuracy casi un punto (1/115 ≈ 0.87 puntos), así que el F1 sube y baja "
-          "más de una época a otra. Una época más de paciencia evita detener el entrenamiento por una caída "
-          "pasajera.")
-
-    # Prueba de Wilcoxon (3_resultados/wilcoxon_vit_vs_densenet.csv)
-    doc_res = find(doc, "Documentación de resultados")
-    cur = Cursor(doc, doc_res)
-    cur.el = doc_res._p.getprevious()
-    cur.p("Prueba de Wilcoxon: ViT-Base/16 frente a DenseNet-121", style="Heading 3")
-    cur.p("En palabras simples: la prueba indica si la ventaja de ViT-Base/16 sobre DenseNet-121 es real o "
-          "podría deberse al azar. Compara los dos modelos fold por fold; si p es menor que 0.05 (el nivel "
-          "α que fija el plan de tesis), la diferencia es estadísticamente significativa.")
-    cur.p("Se comparan los 10 folds de cada dominio (los mismos folds para los dos modelos). Con 10 pares de "
-          "resultados la prueba puede llegar a 0.05; con 5 folds el p-valor más bajo posible sería 0.0625.",
-          shade=False)
-    cur.table([("Dominio", "Folds en que gana ViT-Base/16", "F1 medio ViT-Base/16", "F1 medio DenseNet-121",
-                "W", "p-valor", "¿Significativo?"),
-               ("Trucha", "8 de 10", "86.33", "82.77", "8", "0.0488", "Sí"),
-               ("Rohu", "9 de 10", "90.18", "84.16", "2", "0.0059", "Sí")])
-    cur.p("Fuente: 3_resultados/wilcoxon_vit_vs_densenet.csv, generado con "
-          "1_codigo/wilcoxon_vit_vs_densenet.py.", shade=False)
+          "resultado; se amplió a 30. En esta corrida, los 40 folds completan las 30 épocas.")
 
     # Guía de lectura de la sección 3
     cur = Cursor(doc, find(doc, "3. Detalle por modelo"))
@@ -667,15 +658,13 @@ def para_publico_general(doc):
     cur.el = anexo_a._p.getprevious()
     cur.p("4. Conclusiones", style="Heading 1")
     for texto in [
-        "Los dos modelos bajan al pasar de Mendeley a los nuevos dominios: ViT-Base/16 pasa de 96.96 % de "
-        "F1 macro a 86.33 % en Trucha y 90.18 % en Rohu; DenseNet-121 pasa de 95.66 % a 82.77 % y 84.16 % "
+        "Los dos modelos bajan al pasar de Mendeley a los nuevos dominios: ViT-Base/16 pasa de 97.04 % de "
+        "F1 macro a 86.45 % en Trucha y 89.68 % en Rohu; DenseNet-121 pasa de 95.66 % a 82.68 % y 84.25 % "
         "(media de 10 folds).",
-        "ViT-Base/16 retiene más desempeño (TRD de 89.04 % y 93.01 %, frente a 86.53 % y 87.98 % de "
-        "DenseNet-121) y su brecha de error es menor (Gap de 10.63 y 6.78 puntos, frente a 12.89 y 11.50).",
-        "El RBE es positivo en los dos dominios: ViT-Base/16 pierde un 17.53 % menos que DenseNet-121 en "
-        "Trucha y un 41.04 % menos en Rohu, es decir, se adapta mejor que la CNN de referencia.",
-        "La ventaja de ViT-Base/16 es estadísticamente significativa en los dos dominios (Wilcoxon: "
-        "p = 0.0488 en Trucha y p = 0.0059 en Rohu).",
+        "ViT-Base/16 retiene más desempeño (TRD de 89.09 % y 92.42 %, frente a 86.43 % y 88.07 % de "
+        "DenseNet-121) y su brecha de error es menor (Gap de 10.59 y 7.36 puntos, frente a 12.98 y 11.41).",
+        "El RBE es positivo en los dos dominios: ViT-Base/16 pierde un 18.41 % menos que DenseNet-121 en "
+        "Trucha y un 35.50 % menos en Rohu, es decir, se adapta mejor que la CNN de referencia.",
         "Este resultado respalda usar ViT-Base/16 como base del modelo con adaptación de dominio, la "
         "siguiente etapa de la tesis.",
     ]:
@@ -706,13 +695,13 @@ def actualizar():
     Paragraph(titulo, pie._parent).style = doc.styles["Heading 2"]
     cur.el = enlace_ampliado(doc, pie._p, FIGURA.name)  # la explicación sigue después del enlace
     cur.p("Explicación de la arquitectura, componente por componente", style="Heading 3")
-    cur.p("El diagrama se lee de izquierda a derecha: primero la selección de las imágenes, "
+    cur.p("El diagrama se lee de izquierda a derecha y cada caja lleva el mismo número que aquí, en el orden en que ocurre: primero la selección de las imágenes, "
           "después las seis etapas. La flecha continua es paso de datos y "
           "la punteada, un registro que se guarda o se consulta. El ícono de cada caja indica su tipo: "
-          "componente (programa que hace una tarea), función (paso de cálculo), dataset (conjunto "
+          "componente (script que hace una tarea), función (paso de cálculo), dataset (conjunto "
           "de fotos), archivo (resultado guardado) o registro (logs de ejecución).")
-    for titulo, texto in ARQUITECTURA:
-        cur.p((con_tipo(titulo, TIPO_CAJA), "b"), texto)
+    for n, (titulo, texto) in enumerate(ARQUITECTURA, start=1):
+        cur.p((f"{n}. {con_tipo(titulo, TIPO_CAJA).rstrip('. ')}: ", "b"), texto)
 
     # Tarea 3 — depuración de trucha en dos pasos
     cur = Cursor(doc, find(doc, "Depuración de imágenes de trucha"))
@@ -743,6 +732,12 @@ def actualizar():
         "De los 76 restantes, en una tercera pasada se revisaron 70 imágenes originales y se recuperaron 30 "
         "recortes; los 46 restantes (76 − 30), incluidas las 6 que no pasaron a esa revisión, se excluyeron.")
     assert "tercera pasada" in rev.text
+    if COLLAGE.exists():
+        figura(Cursor(doc, rev), COLLAGE,
+               "Ejemplos de la revisión de Trucha. Arriba, recortes «ok» que se conservan; al centro, recortes "
+               "«dudosa» rescatados a mano; abajo, recortes excluidos, con el motivo de la exclusión.")
+    else:
+        print(f"Aviso: falta {COLLAGE.relative_to(ROOT)}; el documento sale sin el collage de la revisión.")
     quitar(find(doc, "Rohu rinde por encima de Trucha"))
     quitar(find(doc, "Alcance de la evidencia"))
     for p in doc.paragraphs:
@@ -751,14 +746,6 @@ def actualizar():
                 p.text = p.text.replace(vieja, nueva)
 
     # Tarea 8 — por qué algunos folds terminan antes de 30 epochs
-    cur = Cursor(doc, find(doc, "Nota. Epochs ejecutados"))
-    cur.p(("Por qué algunos folds terminan antes de 30 epochs. ", "b"),
-          "Cada fold corre como máximo 30 epochs (300 por modelo y dominio). Si el F1 macro del fold "
-          "retenido no mejora durante 8 epochs seguidas, el entrenamiento se detiene "
-          "(linear_probe_con_test.py, entrenar_fold, líneas 147–157). Por eso, en un fold con menos de 30 "
-          "epochs, la mejor época es la última época corrida menos 8. Ejemplo, ViT-Base/16 en Trucha: el fold 1 "
-          "corrió 18 epochs, así que su mejor época fue la 10; el fold 3 corrió 23 y su mejor época fue la "
-          "15. Siempre se reporta la mejor época, no la última.")
 
     # Tarea 7 — cómo se obtiene cada columna de la tabla general
     cur = Cursor(doc, find(doc, "Nota: el F1 pooled se calcula una vez"))
@@ -767,23 +754,29 @@ def actualizar():
                "3.1.2 y 3.1.4):")
     cur.table([("Fold", "TP", "FN", "FP", "TN", "F1 macro del fold")] +
               [(f"Fold {k}", tp, fn, fp, tn, f1) for k, tp, fn, fp, tn, f1 in VIT_TRUCHA] +
-              [("Suma / media", "377", "104", "45", "624", "86.33")], bold_last=True)
-    cur.p("Con esa matriz sumada se obtiene cada columna de la tabla:", shade=False)
-    cur.table([
+              [("Suma / media", "379", "102", "46", "623", "86.45")], bold_last=True)
+    cur.p("Las columnas de fold salen de la matriz de cada fold; las demás, de la matriz sumada:", shade=False)
+    tabla_columnas = cur.table([
         ("Columna", "Cómo se obtiene", "Cálculo (ViT-Base/16, Trucha)", "Valor"),
-        ("Accuracy", "Aciertos de la matriz sumada / total", "(377 + 624) / 1,150 × 100", "87.04"),
-        ("Precisión macro", "Promedio de la precisión de cada clase (matriz sumada)",
-         "fresco 377 / (377 + 45) = 89.34\nno fresco 624 / (624 + 104) = 85.71\n"
-         "(89.34 + 85.71) / 2", "87.53"),
-        ("F1 macro (pooled)", "Promedio del F1 de cada clase (matriz sumada)",
-         "(83.50 + 89.33) / 2", "86.42"),
-        ("Desv. std F1", "Desviación estándar muestral (n − 1) de los 10 F1 de fold",
-         "stdev de los 10 F1 de la tabla anterior", "4.75"),
+        ("F1 macro del fold", "Promedio del F1 de cada clase, con la matriz de ese fold\n"
+         "F1_fresco = 2TP / (2TP + FP + FN) × 100\nF1_no_fresco = 2TN / (2TN + FN + FP) × 100\n"
+         "F1 macro = (F1_fresco + F1_no_fresco) / 2",
+         "Fold 1:\nF1_fresco = 2×37 / (2×37 + 6 + 12) = 80.43\nF1_no_fresco = 2×60 / (2×60 + 12 + 6) = 86.96\n"
+         "(80.43 + 86.96) / 2", "83.70"),
+        ("Accuracy", "Aciertos de la matriz sumada / total\nAccuracy = (TP + TN) / (TP + FN + FP + TN) × 100", "(379 + 623) / 1,150 × 100", "87.13"),
+        ("Precisión macro", "Promedio de la precisión de cada clase (matriz sumada)\nPrecisión_fresco = TP / (TP + FP) × 100\nPrecisión_no_fresco = TN / (TN + FN) × 100\nPrecisión macro = (Precisión_fresco + Precisión_no_fresco) / 2",
+         "fresco 379 / (379 + 46) = 89.18\nno fresco 623 / (623 + 102) = 85.93\n"
+         "(89.18 + 85.93) / 2", "87.55"),
+        ("F1 macro (pooled)", "Promedio del F1 de cada clase (matriz sumada)\nMismas fórmulas de F1, con la matriz sumada",
+         "(83.66 + 89.38) / 2", "86.52"),
+        ("Desv. std F1", "Desviación estándar muestral (n − 1) de los 10 F1 de fold\ns = √( Σₖ (F1ₖ − media)² / (n − 1) )",
+         "stdev de los 10 F1 de la tabla anterior", "4.81"),
         ("AUC (pooled)", "Con las 1,150 probabilidades concatenadas (roc_curve_pooled.csv), no con "
-                         "la matriz", "Área bajo la ROC pooled", "0.9224"),
-        ("F1 medio (10 folds)", "Media simple de los 10 F1 de fold; es la cifra que usan TRD, Gap y RBE",
-         "suma de los 10 F1 de la tabla anterior / 10", "86.33"),
+                         "la matriz\nAUC = Σᵢ (FPRᵢ₊₁ − FPRᵢ) × (TPRᵢ₊₁ + TPRᵢ) / 2\nFPR = FP / (FP + TN), TPR = TP / (TP + FN), para cada umbral", "Área bajo la ROC pooled", "0.9272"),
+        ("F1 medio (10 folds)", "Media simple de los 10 F1 de fold; es la cifra que usan TRD, Gap y RBE\nF1 medio = (F1₁ + F1₂ + … + F1₁₀) / 10",
+         "suma de los 10 F1 de la tabla anterior / 10", "86.45"),
     ])
+    formulas_en_consolas(tabla_columnas)
 
     # Ejemplo de 1.5 con enlace a la sección de donde salen los datos
     find(doc, "Ejemplo instanciado — ViT-Base/16, Trucha").add_run(" (datos de 3.1.2 y 3.1.4)")
@@ -792,12 +785,12 @@ def actualizar():
     cur = Cursor(doc, find(doc, "Para el propio baseline, Gap_baseline"))
     cur.p("Ejemplo — ViT-Base/16 en Trucha (F1 medio de 10 folds de la tabla de 1.6; F1 de Mendeley de "
           "Documentacion_Tecnica_10_Modelos.docx, tabla de la etapa 6):", shade=False)
-    cur.f("TRD = 86.33 / 96.96 × 100 = 89.04 %",
-          "Error_objetivo = 1 − 86.33/100 = 0.1367",
-          "Error_fuente = 1 − 96.96/100 = 0.0304",
-          "Gap = (0.1367 − 0.0304) × 100 = 10.63 puntos",
-          "Gap_DenseNet = [(1 − 0.8277) − (1 − 0.9566)] × 100 = 12.89 puntos",
-          "RBE = (12.89 − 10.63) / 12.89 × 100 = 17.53 %")
+    cur.f("TRD = 86.45 / 97.04 × 100 = 89.09 %",
+          "Error_objetivo = 1 − 86.45/100 = 0.1355",
+          "Error_fuente = 1 − 97.04/100 = 0.0296",
+          "Gap = (0.1355 − 0.0296) × 100 = 10.59 puntos",
+          "Gap_DenseNet = [(1 − 0.8268) − (1 − 0.9566)] × 100 = 12.98 puntos",
+          "RBE = (12.98 − 10.59) / 12.98 × 100 = 18.41 %")
 
     # Composición de Rohu: una sola nota al final del documento (pedido del autor)
     # Fuente: 2_logs/linear_probe_10fold.log (línea 481) y experimento_dataset_mixto.py
@@ -875,7 +868,7 @@ def actualizar():
     for viejo, nuevo in (
             ("Gap = Error_objetivo − Error_fuente", "Gap = (Error_objetivo − Error_fuente) × 100, en puntos de F1"),
             ("Error_objetivo − Error_fuente (ver", "(Error_objetivo − Error_fuente) × 100, en puntos de F1 (ver"),
-            ("0.1063", "10.63"), ("0.1289", "12.89"), ("0.0678", "6.78"), ("0.1150", "11.50")):
+            ("0.1059", "10.59"), ("0.1298", "12.98"), ("0.0736", "7.36"), ("0.1141", "11.41")):
         assert reemplazar_texto(doc, viejo, nuevo), viejo
     indicadores = next(t for t in doc.tables if "TRD (%)" in [c.text.strip() for c in t.rows[0].cells])
     gap = next(c for c in indicadores.rows[0].cells if c.text.strip() == "Gap")
@@ -889,9 +882,16 @@ def actualizar():
                                   "Servidor con procesador Intel Core i9, 64 GB de RAM")
     for fila in (("Intérprete Python", "Python 3.9.6"), ("Sistema operativo", "Windows Server")):
         entorno.rows[2]._tr.addnext(_fila_como(entorno.rows[2]._tr, fila, entorno))
+    # Los 34 folds nuevos de la corrida de 30 épocas se ejecutaron en Mac (dato del autor y dispositivo=mps en su log)
+    sistema = next(f for f in entorno.rows if f.cells[0].text.strip() == "Sistema operativo")
+    sistema._tr.addnext(_fila_como(sistema._tr, ("Corrida de 30 épocas (34 de 40 folds)",
+                                                 "Mac con aceleración Metal (PyTorch, dispositivo mps), según "
+                                                 "2_logs/linear_probe_10fold_30ep.log"), entorno))
     quitar_aclaracion_f1(doc)
     quitar_del_glosario(doc, "Data augmentation")
     agregar_glosario(doc, [
+    ("Componente", "Caja del diagrama que corresponde a un archivo o script de Python con varias funciones, que juntas hacen una tarea."),
+    ("Función (en el diagrama)", "Caja del diagrama que corresponde a un paso de cálculo concreto dentro de un script."),
         ("Aumento de datos (data augmentation)", "Generación de copias modificadas de fotos originales (volteo, giro, "
          "brillo, color, desenfoque) para completar la clase con menos imágenes. En Mendeley lleva cada clase a "
          "4,000 imágenes; en Trucha y Rohu no se aplica."),
@@ -905,9 +905,6 @@ def actualizar():
          "Cuánto varía el F1 entre folds; un valor bajo indica un modelo estable"),
         ("F1 medio (10 folds)", "(F1_fold1 + F1_fold2 + … + F1_fold10) / 10",
          "Media simple de los 10 folds; es la base de TRD, Gap y RBE"),
-        ("Prueba de Wilcoxon pareada", "W = min(R⁺, R⁻): la menor suma de rangos de las diferencias "
-         "positivas o negativas entre los dos modelos; p se obtiene de su distribución exacta",
-         "Si p < 0.05, la diferencia entre los dos modelos es significativa"),
     ])
 
     for prefix, texto in QUE_SE_HACE.items():

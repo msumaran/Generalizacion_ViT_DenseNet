@@ -1,3 +1,3 @@
 dominio,n_folds,folds_vit_mejor,media_f1_vit,media_f1_densenet,W,p_valor,significativo_alfa_0_05
-trucha,10,8,86.33,82.77,8.0,0.0488,True
-rohu,10,9,90.18,84.16,2.0,0.0059,True
+trucha,10,8,86.45,82.68,8.0,0.0488,True
+rohu,10,8,89.68,84.25,4.0,0.0137,True

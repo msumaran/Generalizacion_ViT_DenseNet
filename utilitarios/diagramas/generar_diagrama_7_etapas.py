@@ -6,7 +6,7 @@ Genera en 6_documentacion/diagramas/ (SVG editable + PNG en alta resolución):
   - vista_simple_generalizacion: el experimento en 6 pasos, para público general.
 
 Cifras: Trucha 1,196 → 1,150 (46 excluidas); Rohu 1,652 → 1,521 depuradas, 1,261 evaluadas (ver la
-Nota sobre Rohu); TRD de ViT-Base/16 y DenseNet-121: 89.04 / 86.53 (Trucha) y 93.01 / 87.98 (Rohu); 10 folds.
+Nota sobre Rohu); TRD de ViT-Base/16 y DenseNet-121: 89.09 / 86.43 (Trucha) y 92.42 / 88.07 (Rohu); 10 folds.
 Uso (desde la raíz del repositorio): python utilitarios/diagramas/generar_diagrama_7_etapas.py
 """
 import sys
@@ -22,6 +22,8 @@ ANCHO, ALTO = d.X0 + 7 * d.COL, 1650
 
 
 # Tipo de cada caja (ícono del diagrama); la documentación lo usa para nombrar cada componente
+# Orden de lectura: el número de cada caja coincide con la explicación del documento
+ORDEN_CAJAS = ["Selección de trucha", "Selección de Rohu", "Revisión de trucha", "Fotos listas", "Modelo de Mendeley", "Dividir en 10 folds", "Entrenar la cabeza", "Probar en el fold", "Guardar y decidir", "Evaluar el fold", "Reunir 10 folds", "Gráficas", "Comparar", "Documentación"]
 TIPO_CAJA = {
     "Selección de trucha": "dataset",
     "Selección de Rohu": "dataset",
@@ -43,7 +45,7 @@ TIPO_CAJA = {
 def arquitectura():
     L = d.Lienzo(ANCHO, ALTO)
     caja = lambda c, f, color, titulo, lineas, **kw: L.caja(  # noqa: E731
-        c, f, color, titulo, lineas, tipo=TIPO_CAJA.get(titulo), **kw)
+        c, f, color, f"{ORDEN_CAJAS.index(titulo) + 1}. {titulo}", lineas, tipo=TIPO_CAJA.get(titulo), **kw)
     for c in range(7):
         L.panel(c, 1030)
     cabeceras = [(d.GRIS, "ANTES DEL EXPERIMENTO", "Seleccionar imágenes"), (NARANJA, "ETAPA 1", "Preparar datos"),
@@ -66,12 +68,11 @@ def arquitectura():
                                               "Variaciones al azar"])
     caja(3, 1, AZUL, "Probar en el fold", ["Clasifica el fold", "que quedó fuera", "(el mismo en cada época)",
                                            "y mide el F1"])
-    caja(3, 2, AZUL, "Guardar y decidir", ["Si el F1 mejora, guarda", "la cabeza de esa época", "Para: 8 sin mejora", "o 30 épocas"])
+    caja(3, 2, AZUL, "Guardar y decidir", ["Si el F1 mejora, guarda", "la cabeza de esa época", "Hasta completar", "30 épocas"])
     caja(4, 0, MAGENTA, "Evaluar el fold", ["Cabeza de la mejor época", "clasifica el fold", "Matriz · ROC · AUC"])
     caja(5, 0, MAGENTA, "Reunir 10 folds", ["Cada foto evaluada", "una sola vez", "F1 y AUC por modelo"])
     caja(5, 1, MAGENTA, "Gráficas", ["Matrices de confusión", "Curvas ROC"])
-    caja(6, 0, VERDE, "Comparar", ["Cuánto conserva: TRD", "Cuánto pierde: Gap", "ViT frente a CNN: RBE",
-                                     "Prueba de Wilcoxon"])
+    caja(6, 0, VERDE, "Comparar", ["Cuánto conserva: TRD", "Cuánto pierde: Gap", "ViT frente a CNN: RBE"])
     caja(6, 1, VERDE, "Documentación", ["Tablas, gráficas", "y registros", "en este documento"])
 
     cx = lambda c: d.x_caja(c) + d.ANCHO / 2  # noqa: E731
@@ -110,13 +111,13 @@ def arquitectura():
     L.flecha([(der(5), yc(0)), (izq(6), yc(0))], MAGENTA)
     # La comparación necesita también el F1 que el modelo logró en Mendeley
     L.flecha([(cx(6), d.CARRIL_SUPERIOR), (cx(6), arriba(0))], VERDE)
-    L.etiqueta(cx(6), d.CARRIL_SUPERIOR, "F1 en Mendeley: 96.96 y 95.66", VERDE)
+    L.etiqueta(cx(6), d.CARRIL_SUPERIOR, "F1 en Mendeley: 97.04 y 95.66", VERDE)
     L.flecha([(der(5), yc(1)), (izq(6), yc(1))], MAGENTA); L.etiqueta(d.hueco(5), yc(1) - 30, "figuras", MAGENTA)
     L.flecha([(cx(6), abajo(0)), (cx(6), arriba(1))], VERDE); L.etiqueta(cx(6) + 14, d.franja(0), "indicadores", VERDE, "start")
 
     # Registros (punteado)
     yb = 1330
-    L.banda(3, 6, yb, 110, "Registros y resultados guardados",
+    L.banda(3, 6, yb, 110, "15. Registros y resultados guardados",
             "Entrenamiento por época, resultados por fold y gráficas de la corrida de 10 folds")
     L.flecha([(cx(3), abajo(2)), (cx(3), yb)], d.LINEA, True)
     L.etiqueta(cx(3) + 14, abajo(2) + 40, "registro por época", d.LINEA, "start")

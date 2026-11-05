@@ -31,7 +31,7 @@ repeat :Tomar el siguiente pez (Trucha, Rohu);
             :Guardar la cabeza de esa época;
           else (no)
           endif
-        repeat while (¿menos de 8 épocas sin mejora\ny menos de 30 épocas?) is (sí) not (no)
+        repeat while (¿menos de 30 épocas?) is (sí) not (no)
       }
       partition "Etapa 4 · Evaluar" {
         :Clasificar el fold con la cabeza de la mejor época;
@@ -46,7 +46,6 @@ repeat :Tomar el siguiente pez (Trucha, Rohu);
 repeat while (¿quedan peces?) is (sí) not (no)
 partition "Etapa 6 · Comparar y documentar" {
   :Comparar con Mendeley (TRD, Gap) y ViT frente a CNN (RBE);
-  :Prueba de Wilcoxon;
   :Documentar tablas, gráficas y registros;
 }
 stop

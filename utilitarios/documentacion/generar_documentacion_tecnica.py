@@ -19,7 +19,6 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
-from scipy.stats import wilcoxon
 from docx import Document
 from matplotlib.patches import FancyBboxPatch
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -35,9 +34,10 @@ MODELOS = [  # (clave, nombre, familia, parametros, imagen, batch, cabeza entren
 ]
 # F1 macro pooled en Mendeley (dominio fuente): Mendeley_ViT_DenseNet/3_resultados_test_por_modelo/
 # metricas_pooled_por_modelo.csv
-F1_FUENTE = {"vit_base_patch16_224": 96.96, "densenet121": 95.66}
+F1_FUENTE = {"vit_base_patch16_224": 97.04, "densenet121": 95.66}
 DOMINIOS = [("trucha", "Trucha"), ("rohu", "Rohu")]
-LOG = "2_logs/linear_probe_10fold.log"
+LOG = "2_logs/linear_probe_10fold_30ep.log"
+LOG_ANTERIOR = "2_logs/linear_probe_10fold.log"  # corrida con paciencia 8: 6 folds llegaron a 30 epochs y se reutilizan
 RES = "3_resultados/{dom}/linear_probe_10fold"  # salida de linear_probe_con_test.py --protocolo original --folds 10
 K = 10
 
@@ -57,16 +57,13 @@ def cargar():
             folds = []
             for k in range(1, K + 1):
                 cm = pd.read_csv(f"{base}/confusion_matrix_fold{k}.csv", index_col=0).values
-                pr = pd.read_csv(f"{base}/predicciones_fold{k}.csv")
                 ep = pd.read_csv(f"{base}/epochs_fold{k}.csv")
                 fila = filas.loc[str(k)]
                 folds.append({"cm": cm, "auc": float(fila.test_auc), "epochs": len(ep), "ep": ep,
                               "elegido": int(ep.loc[ep.val_f1.idxmax(), "epoch"]), "f1": float(fila.test_f1),
                               "acc": float(fila.test_accuracy), "n_train": int(float(fila.n_train)),
-                              "tiempo": float(fila.tiempo_s), "roc": pd.read_csv(f"{base}/roc_curve_fold{k}.csv")})
-                # matriz = predicciones del fold; F1, epochs y epoch elegido = resumen.csv
-                assert (cm == pd.crosstab(pr.real, pr.prediccion).reindex(index=[0, 1], columns=[0, 1],
-                                                                             fill_value=0).values).all()
+                              "roc": pd.read_csv(f"{base}/roc_curve_fold{k}.csv")})
+                # F1, epochs y epoch elegido = resumen.csv (log de 30 epochs)
                 assert abs(metricas(cm)["f1"] - float(fila.test_f1)) < 0.01, (dom, clave, k)
                 assert len(ep) == int(float(fila.epochs_run)) and folds[-1]["elegido"] == int(float(fila.epoch_elegido))
             pooled = pd.read_csv(f"{base}/confusion_matrix_pooled.csv", index_col=0).values
@@ -74,7 +71,7 @@ def cargar():
             datos[dom, clave] = {
                 "folds": folds, "pooled": pooled, "auc": float(filas.loc["pooled"].test_auc),
                 "roc": pd.read_csv(f"{base}/roc_curve_pooled.csv"),
-                "f1_oficial": round(statistics.mean(f["f1"] for f in folds), 2),
+                "f1_oficial": round(statistics.mean(f["f1"] for f in folds) + 1e-9, 2),  # 89.675 → 89.68, igual que wilcoxon_vit_vs_densenet.py
             }
     return datos
 
@@ -406,8 +403,6 @@ GLOSARIO = [
                                      "denominador. Un valor bajo indica un modelo estable."),
     ("Dominio fuente", "Conjunto con el que se entrenaron los modelos base: Mendeley (8,000 imágenes)."),
     ("Dominio objetivo", "Conjunto nuevo al que se transfiere el modelo: Trucha o Rohu."),
-    ("Early stopping", "Regla que detiene el entrenamiento cuando val_F1 no mejora durante un número de epochs "
-                       "(paciencia = 8)."),
     ("Epoch", "Una pasada completa del modelo por todas las imágenes de entrenamiento."),
     ("Especificidad", "De las imágenes que no son de la clase evaluada, porcentaje que el modelo descartó "
                       "correctamente: TN/(TN+FP) × 100."),
@@ -435,7 +430,6 @@ GLOSARIO = [
     ("MPS", "Metal Performance Shaders: aceleración por GPU de PyTorch en equipos Apple."),
     ("OOF (out-of-fold)", "Predicción que recibe una imagen de la cabeza entrenada con los otros 9 folds, que "
                           "no la vio en entrenamiento."),
-    ("Paciencia", "Número de epochs seguidos sin mejora de val_F1 que se toleran antes del early stopping."),
     ("Parámetros", "Cantidad de pesos del modelo, en millones (M); los entrenables aquí son solo los de la "
                    "cabeza."),
     ("Pooled", "Resultado calculado una sola vez sobre todas las predicciones OOF concatenadas, no como promedio "
@@ -518,7 +512,7 @@ def generar(datos, plantilla):
     parrafo(doc, "StratifiedGroupKFold(n_splits=10, shuffle=True, random_state=42), agrupando las fotos casi "
                  "idénticas (tomadas en ráfaga, detectadas con detectar_duplicados.py) para que una foto y su casi "
                  "gemela nunca queden una en entrenamiento y otra en evaluación. Por eso el tamaño del fold de "
-                 "evaluación varía entre 117 y 133 imágenes. En las 1,521 fotos de Rohu se detectaron 108 grupos "
+                 "evaluación varía entre 117 y 133 imágenes. En las fotos de Rohu se detectaron 108 grupos "
                  "de 2 o más fotos casi idénticas (el más grande con 15); cada una de las demás imágenes es su propio grupo.",
             prefijo="Rohu. ")
     parrafo(doc, "a diferencia de Mendeley (68/12/20), aquí no hay un fold de validación separado del de "
@@ -539,8 +533,7 @@ def generar(datos, plantilla):
                 "Tamaño de imagen", "Batch size"],
           [(n, fam, par, f"{cab:,}", f"{img}×{img}", b) for _, n, fam, par, img, b, cab in MODELOS])
     parrafo(doc, "optimizador AdamW sobre la cabeza (learning rate 1e-4, weight decay 1e-4), "
-                 "CosineAnnealingLR, CrossEntropyLoss, hasta 30 epochs con early stopping (paciencia 8 epochs sin "
-                 "mejora de val_F1).", prefijo="Hiperparámetros (linear_probe_con_test.py, entrenar_fold): ")
+                 "CosineAnnealingLR, CrossEntropyLoss, 30 epochs por fold.", prefijo="Hiperparámetros (linear_probe_con_test.py, entrenar_fold): ")
     parrafo(doc, "cada imagen de entrenamiento aparece una sola vez por epoch, con la augmentación "
                  "estocástica estándar de get_transforms_v3 (recorte, flip, color, blur, rotación, erasing). La "
                  "evaluación nunca se aumenta.", prefijo="Variaciones al azar en entrenamiento: ")
@@ -552,7 +545,7 @@ def generar(datos, plantilla):
     negrita(doc, "Especificaciones técnicas del entorno de ejecución:")
     tabla(doc, ["Componente", "Detalle"], [
         ("Hardware", "PC con procesador Intel Core i9 y 64 GB de RAM"),
-        ("Deep learning", "PyTorch + torchvision (entrenamiento, tensores, transforms)"),
+        ("Librerías de deep learning", "PyTorch + torchvision (entrenamiento, tensores, transforms)"),
         ("Model zoo", "timm — ViT-Base/16 y DenseNet-121"),
         ("ML utilitario", "scikit-learn — StratifiedKFold, StratifiedGroupKFold, confusion_matrix, roc_curve, "
                           "roc_auc_score"),
@@ -562,7 +555,7 @@ def generar(datos, plantilla):
     ])
 
     titulo(doc, "1.4 Etapa 4 — Entrenamiento de la cabeza y selección del mejor epoch", 2)
-    parrafo(doc, "Por cada combinación (modelo, dominio, fold) — 40 en total — se entrena la cabeza hasta 30 "
+    parrafo(doc, "Por cada combinación (modelo, dominio, fold) — 40 en total — se entrena la cabeza durante 30 "
                  "epochs. En cada epoch se mide val_F1 sobre el fold de evaluación; se guardan las predicciones "
                  "del epoch con mejor val_F1, que son las que se reportan (no las del último epoch).")
     negrita(doc, "Corridas experimentales por modelo y dominio")
@@ -573,10 +566,12 @@ def generar(datos, plantilla):
             filas.append((nombre, dominio, "10", sum(f["epochs"] for f in d["folds"]), "10", f"{d['pooled'].sum():,}"))
     tabla(doc, ["Modelo", "Dominio", "Corridas (folds)", "Epochs ejecutados", "Evaluaciones", "Predicciones OOF"],
           filas)
-    parrafo(doc, "Epochs ejecutados = suma de los 10 folds (máximo 30 por fold; menos de 300 indica early "
-                 "stopping). Una sola corrida (linear_probe_con_test.py --protocolo original --folds 10) guarda, "
-                 "por fold, val_F1 por epoch, las predicciones, la matriz de confusión y la curva ROC; todas las "
-                 "cifras de este documento salen de ella. Log: " + LOG + ". La ruta de salida que muestra la "
+    parrafo(doc, "Epochs ejecutados = suma de los 10 folds (30 por fold). La corrida linear_probe_con_test.py "
+                 "--protocolo original --folds 10 --epochs 30 guarda, por fold, val_F1 por epoch, la "
+                 "matriz de confusión y la curva ROC; todas las cifras de este documento salen de ella. Seis folds "
+                 "se reutilizan de la corrida anterior (DenseNet-121 "
+                 "en Trucha: folds 3 y 8; ViT-Base/16 en Rohu: folds 3 y 9; DenseNet-121 en Rohu: folds 1 y 3); sus "
+                 "curvas están en " + LOG_ANTERIOR + ". Log: " + LOG + ". La ruta de salida que muestra la "
                  "primera línea del log es la carpeta de trabajo donde se ejecutó la corrida; sus archivos están "
                  "en 3_resultados/{trucha,rohu}/linear_probe_10fold/.", prefijo="Nota. ")
 
@@ -654,11 +649,11 @@ def generar(datos, plantilla):
         for clave, nombre, *_ in MODELOS:
             for k, f in enumerate(datos[dom, clave]["folds"], start=1):
                 filas.append((nombre, dominio, f"Fold {k}", f["n_train"], metricas(f["cm"])["n"], f2(f["f1"]),
-                              f2(f["acc"]), f["epochs"], f"{f['tiempo']:.1f}"))
+                              f2(f["acc"]), f["epochs"]))
             resaltar.append(len(filas))
-            filas.append((nombre, dominio, "Media", "", "", f2(datos[dom, clave]["f1_oficial"]), "", "", ""))
-    tabla(doc, ["Modelo", "Dominio", "Fold", "N entrenamiento", "N evaluación", "F1", "Accuracy", "Epochs",
-                "Tiempo (s)"], filas, resaltar=resaltar)
+            filas.append((nombre, dominio, "Media", "", "", f2(datos[dom, clave]["f1_oficial"]), "", ""))
+    tabla(doc, ["Modelo", "Dominio", "Fold", "N entrenamiento", "N evaluación", "F1", "Accuracy", "Epochs"],
+          filas, resaltar=resaltar)
     parrafo(doc, f"{RES.replace('{dom}', '{trucha,rohu}')}/resumen.csv. Log: {LOG}.", prefijo="Fuente: ",
             italic=True, size=9.5)
     negrita(doc, "Indicadores de robustez (fórmulas en 2.6)")
@@ -677,8 +672,7 @@ def generar(datos, plantilla):
     for dom, dominio in DOMINIOS:
         v = [f["f1"] for f in datos[dom, "vit_base_patch16_224"]["folds"]]
         c = [f["f1"] for f in datos[dom, "densenet121"]["folds"]]
-        parrafo(doc, f"{dominio}: ViT-Base/16 supera a DenseNet-121 en {sum(a > b for a, b in zip(v, c))} de los "
-                     f"10 folds (Wilcoxon pareado, p = {wilcoxon(v, c).pvalue:.4f}).")
+        parrafo(doc, f"{dominio}: ViT-Base/16 supera a DenseNet-121 en {sum(a > b for a, b in zip(v, c))} de los 10 folds.")
     parrafo(doc, "Rohu rinde por encima de Trucha en los 2 modelos.")
     parrafo(doc, "ViT-Base/16 retiene más desempeño que DenseNet-121 en ambos dominios (TRD más alto, Gap más "
                  "chico) y su RBE es positivo: transfiere mejor que el baseline CNN.")
@@ -768,7 +762,7 @@ def generar(datos, plantilla):
         titulo(doc, f"3.{i}.1 Entrenamiento — val_F1 por epoch", 3)
         archivo(doc, f"{RES.replace('{dom}', '{trucha,rohu}')}/{clave}/epochs_fold{{1..10}}.csv y resumen.csv",
                 "linear_probe_con_test.py — entrenar_fold(): mide val_F1 al final de cada epoch, guarda la cabeza "
-                "del mejor epoch y corta cuando pasan 8 epochs seguidos sin mejora.")
+                "del mejor epoch y completa las 30 epochs.")
         for dom, dominio in DOMINIOS:
             d = datos[dom, clave]
             png = curvas_epoch(datos, dom, clave, nombre, dominio)
@@ -780,17 +774,13 @@ def generar(datos, plantilla):
             for k, f in enumerate(d["folds"], start=1):
                 e = f["ep"]
                 mejor = e.loc[e.val_f1.idxmax()]
-                assert (len(e) == 30 and e.paciencia.iloc[-1] < 8) or (e.paciencia.iloc[-1] == 8 and len(e) == int(mejor.epoch) + 8)
-                parada = "límite de 30 epochs" if e.paciencia.iloc[-1] < 8 else "8 epochs sin mejora"
-                filas.append((f"Fold {k}", (k - 1) % 5 + 1, f["elegido"], f2(mejor.val_f1), len(e), parada))
-            tabla(doc, ["Fold", "Checkpoint Mendeley", "Epoch elegido", "val_F1 en ese epoch", "Epoch de corte",
-                        "Motivo de la parada"], filas)
-            parrafo(doc, "cada fold se entrena hasta 30 epochs y se detiene antes si pasan 8 epochs seguidos sin "
-                         "superar su mejor val_F1 (paciencia = 8). Por eso cada fold corta en un epoch distinto: el "
-                         "corte es el epoch elegido + 8, salvo que el fold siga mejorando y llegue al límite de 30. "
+                assert len(e) == 30, (dom, clave, k)
+                filas.append((f"Fold {k}", (k - 1) % 5 + 1, f["elegido"], f2(mejor.val_f1), len(e)))
+            tabla(doc, ["Fold", "Checkpoint Mendeley", "Epoch elegido", "val_F1 en ese epoch", "Epochs ejecutados"], filas)
+            parrafo(doc, "todos los folds completan las 30 epochs. "
                          "Qué epoch es el mejor depende de las imágenes del fold y del checkpoint de Mendeley del que "
                          "parte. Siempre se usa el modelo del epoch elegido, no el del último.",
-                    prefijo="Por qué cada fold para en un epoch distinto: ", size=9.5)
+                    prefijo="Por qué cada fold elige un epoch distinto: ", size=9.5)
             sd = statistics.stdev(f["f1"] for f in d["folds"])
             parrafo(doc, f"Media del F1 de los 10 folds = {f2(d['f1_oficial'])} ± {f2(sd)}. val_F1 en el epoch "
                          f"elegido es el F1 del fold, porque el mismo fold elige el epoch y se evalúa (ver 1.2). "
@@ -799,8 +789,8 @@ def generar(datos, plantilla):
             for k, f in enumerate(d["folds"], start=1):
                 e = f["ep"]
                 parrafo(doc, f"Fold {k}", italic=True)
-                tabla(doc, ["Epoch", "val_F1", "Mejor hasta ahora", "Paciencia"],
-                      [(int(x.epoch), f2(x.val_f1), f2(x.mejor_hasta_ahora), int(x.paciencia))
+                tabla(doc, ["Epoch", "val_F1", "Mejor hasta ahora"],
+                      [(int(x.epoch), f2(x.val_f1), f2(x.mejor_hasta_ahora))
                        for x in e.itertuples()],
                       resaltar=(int(e.val_f1.idxmax()),))
         sub = 1
@@ -811,7 +801,7 @@ def generar(datos, plantilla):
 
             sub += 1
             titulo(doc, f"3.{i}.{sub} {dominio} — resultados por fold", 3)
-            archivo(doc, f"{ruta}/confusion_matrix_fold{{1..10}}.csv, predicciones_fold{{1..10}}.csv  y  "
+            archivo(doc, f"{ruta}/confusion_matrix_fold{{1..10}}.csv  y  "
                          f"{RES.format(dom=dom)}/resumen.csv (filas de este modelo)",
                     "linear_probe_con_test.py — main(): por cada fold llama a entrenar_fold() y guarda la matriz "
                     "y la curva ROC de las predicciones del mejor epoch (guardar_matriz_roc).")
@@ -899,8 +889,8 @@ def generar(datos, plantilla):
          "1_codigo/linear_probe_con_test.py (--protocolo original --folds 10), experimento_dataset_mixto.py"),
         ("Generación de este documento y de las gráficas por fold", "utilitarios/documentacion/generar_documentacion_tecnica.py"),
         ("Log de entrenamiento", LOG),
-        ("F1, epochs y tiempo por fold; resultado pooled", "3_resultados/{trucha,rohu}/linear_probe_10fold/resumen.csv"),
-        ("val_F1 por epoch, predicciones, matrices de confusión y curvas ROC (por fold y pooled)",
+        ("F1 y epochs por fold; resultado pooled", "3_resultados/{trucha,rohu}/linear_probe_10fold/resumen.csv"),
+        ("val_F1 por epoch, matrices de confusión y curvas ROC (por fold y pooled)",
          "3_resultados/{trucha,rohu}/linear_probe_10fold/{modelo}/*.csv"),
         ("Gráficas", "4_graficas/{trucha,rohu}/{modelo}/"),
         ("F1 macro de Mendeley (dominio fuente)",
