@@ -156,7 +156,7 @@ ETAPAS = [  # (titulo, linea 1, linea 2) -- misma figura de flujo que la documen
     ("Dominios objetivo y preparación de datos", "Trucha: 1,150 imágenes (481 fresco / 669 no_fresco)",
      "Rohu: 1,261 imágenes (422 fresco / 839 no_fresco)"),
     ("Validación cruzada 10-fold en cada dominio", "Trucha: StratifiedKFold · Rohu: StratifiedGroupKFold",
-     "por corrida: 9 folds entrenan · 1 fold evalúa (semilla 42)"),
+     "por corrida: 9 folds entrenan · 1 fold evalúa"),
     ("Configuración de los 2 modelos (congelado)", "ViT-Base/16 + DenseNet-121 desde los checkpoints de Mendeley",
      "backbone congelado · solo se entrena la cabeza"),
     ("Entrenamiento de la cabeza y mejor epoch", "Máx. 30 epochs · early stopping = 8",
@@ -504,7 +504,7 @@ def generar(datos, plantilla):
                  "por eso la métrica central es el F1 macro, que pesa igual a fresco y no_fresco (ver 2.3).")
 
     titulo(doc, "1.2 Etapa 2 — Validación cruzada 10-fold en cada dominio", 2)
-    parrafo(doc, "Cada dominio se divide en 10 folds con semilla 42. En cada corrida, 9 folds se usan para "
+    parrafo(doc, "Cada dominio se divide en 10 folds. En cada corrida, 9 folds se usan para "
                  "entrenar la cabeza y el fold restante para evaluar; cada imagen se evalúa una sola vez.")
     formula(doc, "Fold i:  Evaluación_i (≈10%)  |  Entrenamiento_i (≈90%)   [i = 1..10]")
     parrafo(doc, "StratifiedKFold(n_splits=10, shuffle=True, random_state=42): 1,035 imágenes de entrenamiento y "

@@ -209,6 +209,71 @@ def enlace_ampliado(doc, despues_de, archivo):
     return p
 
 
+ORIGEN_PESOS = [
+    ("Modelo", "Pesos de partida (timm)", "Enlace de descarga"),
+    ("ViT-Base/16", "vit_base_patch16_224.augreg2_in21k_ft_in1k (ImageNet-21k, ajustado en ImageNet-1k)",
+     "https://huggingface.co/timm/vit_base_patch16_224.augreg2_in21k_ft_in1k"),
+    ("DenseNet-121", "densenet121.ra_in1k (ImageNet-1k)", "https://huggingface.co/timm/densenet121.ra_in1k"),
+]
+ORIGEN_REPOS = [
+    ("Modelo", "Artículo original", "Repositorio original"),
+    ("ViT-Base/16", "Dosovitskiy et al., 2021 (ICLR)", "https://github.com/google-research/vision_transformer"),
+    ("DenseNet-121", "Huang et al., 2017 (CVPR)", "https://github.com/liuzhuang13/DenseNet"),
+]
+
+
+def _run_enlace(texto, tam="19"):
+    r, rpr, t = OxmlElement("w:r"), OxmlElement("w:rPr"), OxmlElement("w:t")
+    for tag, val in (("w:color", "2E75B6"), ("w:sz", tam), ("w:u", "single")):
+        e = OxmlElement(tag)
+        e.set(qn("w:val"), val)
+        rpr.append(e)
+    t.text = texto
+    t.set(qn("xml:space"), "preserve")
+    r.extend([rpr, t])
+    return r
+
+
+def urls_a_enlaces(doc, tabla):
+    """Las celdas cuyo texto es una URL pasan a ser enlaces externos."""
+    for fila in tabla.rows[1:]:
+        for celda in fila.cells:
+            par = celda.paragraphs[0]
+            if not par.text.startswith("http"):
+                continue
+            url = par.text
+            for r in par.runs:
+                r._r.getparent().remove(r._r)
+            h = OxmlElement("w:hyperlink")
+            h.set(qn("r:id"), doc.part.relate_to(url, RT.HYPERLINK, is_external=True))
+            h.append(_run_enlace(url))
+            par._p.append(h)
+
+
+def marcar(par, nombre):
+    ini, fin = OxmlElement("w:bookmarkStart"), OxmlElement("w:bookmarkEnd")
+    ini.set(qn("w:id"), "8999"), ini.set(qn("w:name"), nombre), fin.set(qn("w:id"), "8999")
+    ppr = par._p.find(qn("w:pPr"))
+    (ppr.addnext if ppr is not None else lambda e: par._p.insert(0, e))(ini)
+    par._p.append(fin)
+
+
+def enlace_interno(par, texto, marca):
+    """Convierte la última aparición de `texto` dentro del párrafo en un enlace al marcador."""
+    run = next(r for r in reversed(par.runs) if texto in r.text)
+    antes, despues = run.text.rsplit(texto, 1)
+    run.text = antes
+    h = OxmlElement("w:hyperlink")
+    h.set(qn("w:anchor"), marca)
+    h.append(_run_enlace(texto, "22"))
+    run._r.addnext(h)
+    if despues:
+        cola = copy.deepcopy(run._r)
+        h.addnext(cola)
+        cola.find(qn("w:t")).text = despues
+        cola.find(qn("w:t")).set(qn("xml:space"), "preserve")
+
+
 def mover_antes(desde, hasta_excluido, destino):
     """Mueve los elementos desde `desde` hasta antes de `hasta_excluido`, delante de `destino`."""
     el = desde._p
@@ -382,7 +447,7 @@ ARQUITECTURA = [
     ("Modelo de Mendeley (etapa 2). ",
      "viene del experimento Mendeley (flecha superior): es la mejor versión de ViT-Base/16 o DenseNet-121 ya "
      "entrenada, que se trae sin volver a entrenarla desde cero. Mendeley tiene 5 checkpoints por modelo, uno por fold; "
-     "el fold k usa el checkpoint ((k − 1) mod 5) + 1, así que cada checkpoint se usa en dos folds. Va al paso 7."),
+     "el fold k usa el checkpoint ((k − 1) mod 5) + 1, así que cada checkpoint se usa en dos folds. Va al paso 7. De dónde salen los dos modelos: ver Anexo C."),
     ("Dividir en 10 folds (etapa 2). ",
      "con las fotos del paso 4 se arman 10 folds una sola vez. Después, en cada vuelta, 1 fold queda reservado para "
      "evaluar (pasos 8 y 10) y los otros 9 van a entrenar (paso 7). En Rohu, las fotos casi iguales tomadas en ráfaga "
@@ -510,6 +575,7 @@ INTRO_ORGANIZACION = [
     ("4. Conclusiones", "Qué se encontró"),
     ("Anexo A", "De dónde sale cada dato"),
     ("Anexo B", "Glosario de términos técnicos"),
+    ("Anexo C", "De dónde salen ViT-Base/16 y DenseNet-121 (pesos y repositorios)"),
     ("Nota sobre Rohu", "Composición de las imágenes de Rohu"),
 ]
 
@@ -791,6 +857,21 @@ def actualizar():
           "Gap = (0.1355 − 0.0296) × 100 = 10.59 puntos",
           "Gap_DenseNet = [(1 − 0.8268) − (1 − 0.9566)] × 100 = 12.98 puntos",
           "RBE = (12.98 − 10.59) / 12.98 × 100 = 18.41 %")
+
+    # Anexo C: de dónde salen los dos modelos (reunión del 04/11)
+    anexo_c = doc.add_paragraph("Anexo C. Origen de ViT-Base/16 y DenseNet-121", style="Heading 1")
+    marcar(anexo_c, "anexo_c")
+    cur = Cursor(doc, anexo_c)
+    cur.p("En este experimento los dos modelos no se descargan de internet: parten de los checkpoints entrenados "
+          "en Mendeley (paso 5 de la arquitectura). Esos checkpoints, a su vez, partieron de pesos preentrenados "
+          "públicos que la librería timm (https://github.com/huggingface/pytorch-image-models) descarga de "
+          "Hugging Face, y se ajustaron con las fotos de Mendeley. La primera tabla indica esos pesos de partida "
+          "y su enlace de descarga; la segunda, el artículo y el repositorio original de cada arquitectura. El "
+          "Anexo C de la documentación de Mendeley tiene la misma información para los 10 modelos.", shade=False)
+    urls_a_enlaces(doc, cur.table(ORIGEN_PESOS))
+    cur.p("", shade=False)
+    urls_a_enlaces(doc, cur.table(ORIGEN_REPOS))
+    enlace_interno(find(doc, "5. Modelo de Mendeley"), "Anexo C", "anexo_c")
 
     # Composición de Rohu: una sola nota al final del documento (pedido del autor)
     # Fuente: 2_logs/linear_probe_10fold.log (línea 481) y experimento_dataset_mixto.py
